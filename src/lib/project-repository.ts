@@ -2,6 +2,7 @@ import { createWebsiteProject } from "@/lib/generate-site-content";
 import { prisma } from "@/lib/prisma";
 import { ProjectInputValidationError, validateProjectInput } from "@/lib/project-validation";
 import { validateGeneratedContent } from "@/lib/generated-content";
+import { assertContentGroundedInProject } from "@/lib/content-grounding";
 import type { BrandTone, PersistedWebsiteProject, PrimaryCallToAction, StructuredWebsiteContent, VisualStyle, WebsiteProjectInput } from "@/lib/website-types";
 
 type ProjectRecord = {
@@ -11,7 +12,7 @@ type ProjectRecord = {
 };
 
 function toProject(record: ProjectRecord): PersistedWebsiteProject {
-  return {
+  const project: PersistedWebsiteProject = {
     ...createWebsiteProject({
       business: {
         businessName: record.businessName, category: record.businessType, description: record.businessDescription,
@@ -23,8 +24,16 @@ function toProject(record: ProjectRecord): PersistedWebsiteProject {
       workSamples: record.workSamples.map((sample) => ({ id: sample.id, mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory ?? "", locationNote: sample.locationNote ?? "", cloudinaryPublicId: sample.cloudinaryPublicId ?? undefined, width: sample.width ?? undefined, height: sample.height ?? undefined, duration: sample.duration ?? undefined, format: sample.format ?? undefined, bytes: sample.bytes ?? undefined })),
       testimonials: record.testimonials.map((testimonial) => ({ id: testimonial.id, customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType ?? "", locationNote: testimonial.locationNote ?? "", rating: testimonial.rating?.toString() ?? "" })),
     }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt,
-    ...(validateGeneratedContent(record.generatedContent) ? { generatedContent: validateGeneratedContent(record.generatedContent)!, contentGeneratedAt: record.contentGeneratedAt ?? undefined } : {}),
   };
+  const generatedContent = validateGeneratedContent(record.generatedContent);
+  if (!generatedContent) return project;
+  try {
+    assertContentGroundedInProject(project, generatedContent);
+    return { ...project, generatedContent, contentGeneratedAt: record.contentGeneratedAt ?? undefined };
+  } catch (error) {
+    console.warn("Ignoring generated content that is not grounded in its current project", { projectId: record.id, error: error instanceof Error ? error.message : "Unknown grounding error" });
+    return project;
+  }
 }
 
 function fieldsFor(input: WebsiteProjectInput) {

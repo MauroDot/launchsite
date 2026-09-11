@@ -5,20 +5,30 @@ function yearsPhrase(years: string): string {
   return Number.isFinite(numericYears) && numericYears > 0 ? `With ${numericYears} years of experience, ` : "";
 }
 
+function firstSentence(value: string) {
+  return value.trim().split(/(?<=[.!?])\s+/)[0] || "";
+}
+
 export function generateSiteContent(business: BusinessProfile): GeneratedSiteContent {
   const serviceNames = business.services.map((service) => service.name.trim()).filter(Boolean).slice(0, 6);
-  const isAutomotive = /auto|automotive|mechanic|vehicle|car/i.test(business.category);
-  const workSummary = isAutomotive ? "vehicle repair and maintenance" : `${business.category.toLowerCase()} work`;
+  const category = business.category.trim();
+  const serviceSummary = serviceNames.length > 0 ? serviceNames.join(", ") : `${category.toLowerCase()} services`;
+  const businessContext = firstSentence(business.businessStory) || firstSentence(business.description);
+  const differentiator = firstSentence(business.differentiators) || firstSentence(business.customerPriorities);
   const toneLead = business.tone === "Confident and direct" ? "Dependable" : business.tone === "Polished and professional" ? "Exceptional" : "Thoughtful";
+  const aboutDetails = [businessContext, differentiator].filter(Boolean).join(" ");
 
   return {
-    tagline: `${toneLead} ${business.category.toLowerCase()} in ${business.serviceArea}`,
-    heroHeading: `${business.category} that puts your needs first.`,
+    tagline: `${toneLead} ${category.toLowerCase()} in ${business.serviceArea}`,
+    heroHeading: `${category} that puts your needs first.`,
     heroDescription: business.description,
-    services: serviceNames.map((name) => ({ name, description: `Practical, reliable ${name.toLowerCase()} tailored to your needs.` })),
-    about: `${yearsPhrase(business.yearsInBusiness)}${business.businessName} is proud to serve ${business.serviceArea}. We bring care, clear communication, and a thoughtful approach to ${workSummary}.`,
-    benefits: ["Clear communication from first call to final detail", "Quality work built around your needs", `Proudly serving ${business.serviceArea}`],
-    contactPrompt: `Have a project in mind? Tell us what you need and we’ll be glad to help.`,
+    services: serviceNames.map((name) => {
+      const service = business.services.find((item) => item.name.trim() === name);
+      return { name, description: service?.description.trim() || service?.notes.trim() || `${name} for customers in ${business.serviceArea}.` };
+    }),
+    about: `${yearsPhrase(business.yearsInBusiness)}${business.businessName} serves ${business.serviceArea} with ${serviceSummary}. ${aboutDetails}`.trim(),
+    benefits: [differentiator || "Clear communication from first call to final detail", business.customerPriorities.trim() || "Work shaped around your needs", `Serving ${business.serviceArea}`],
+    contactPrompt: `Have a project in mind? Tell us what you need and ${business.businessName} will be glad to help.`,
   };
 }
 

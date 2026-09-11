@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  DRAFT
+}
+
+model WebsiteProject {
+  id                  String        @id @default(cuid())
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  businessName        String
+  businessType        String
+  businessDescription String
+  serviceArea         String
+  phone               String
+  email               String
+  yearsInBusiness     Int?
+  brandTone           String
+  primaryCallToAction String
+  visualStyle         String
+  slug                String        @unique
+  status              ProjectStatus @default(DRAFT)
+  services            WebsiteService[]
+}
+
+model WebsiteService {
+  id        String         @id @default(cuid())
+  name      String
+  position  Int
+  projectId String
+  project   WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, position])
+}

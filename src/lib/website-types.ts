@@ -38,6 +38,14 @@ export type WebsiteProject = WebsiteProjectInput & {
   content: GeneratedSiteContent;
 };
 
+export type PersistedWebsiteProject = WebsiteProject & {
+  id: string;
+  slug: string;
+  status: "DRAFT";
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export const initialBusinessProfile: BusinessProfile = {
   businessName: "",
   category: "",

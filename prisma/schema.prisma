@@ -51,6 +51,12 @@ model WebsiteWorkSample {
   project         WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   mediaType       MediaType
   mediaUrl        String
+  cloudinaryPublicId String?
+  width           Int?
+  height          Int?
+  duration        Float?
+  format          String?
+  bytes           Int?
   title           String
   description     String
   serviceCategory String?

@@ -7,7 +7,7 @@ export type BrandTone = (typeof brandTones)[number];
 export type PrimaryCallToAction = (typeof callToActions)[number];
 
 export type BusinessService = { id: string; name: string; description: string; notes: string };
-export type WorkSample = { id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string; locationNote: string };
+export type WorkSample = { id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string; locationNote: string; cloudinaryPublicId?: string; width?: number; height?: number; duration?: number; format?: string; bytes?: number };
 export type Testimonial = { id: string; customerName: string; testimonialText: string; serviceType: string; locationNote: string; rating: string };
 
 export type BusinessProfile = {

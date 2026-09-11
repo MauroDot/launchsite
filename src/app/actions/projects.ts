@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createProject, updateProject } from "@/lib/project-repository";
-import { getProject, saveGeneratedContent, saveSiteContent } from "@/lib/project-repository";
+import { getProject, saveDemoSettings, saveGeneratedContent, saveSiteContent } from "@/lib/project-repository";
 import { generateWebsiteContent } from "@/lib/openai-content-generator";
 import { ProjectInputValidationError } from "@/lib/project-validation";
-import type { SiteSettings, StructuredWebsiteContent, WebsiteProjectInput } from "@/lib/website-types";
+import type { DemoSettings, SiteSettings, StructuredWebsiteContent, WebsiteProjectInput } from "@/lib/website-types";
 
 type ActionResult = { ok: true; id: string } | { ok: false; error: string; workSampleErrors?: Record<string, string> };
 
@@ -60,3 +60,5 @@ export async function saveSiteContentAction(id: string, content: StructuredWebsi
     return { ok: false, error: "We couldn't save your website edits. Your business facts were not changed." };
   }
 }
+
+export async function saveDemoSettingsAction(id: string, settings: DemoSettings): Promise<ActionResult> { try { await saveDemoSettings(id, settings); revalidatePath("/dashboard"); revalidatePath(`/dashboard/projects/${id}`); revalidatePath("/examples"); return { ok: true, id }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not save example settings." }; } }

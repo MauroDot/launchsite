@@ -3,17 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { ProjectInputValidationError, validateProjectInput } from "@/lib/project-validation";
 import { validateGeneratedContent } from "@/lib/generated-content";
 import { assertContentGroundedInProject } from "@/lib/content-grounding";
-import { defaultSiteSettings, siteSectionIds, type BrandTone, type PersistedWebsiteProject, type PrimaryCallToAction, type SiteSectionId, type SiteSettings, type StructuredWebsiteContent, type VisualStyle, type WebsiteProjectInput } from "@/lib/website-types";
+import { defaultSiteSettings, defaultThemeSettings, siteSectionIds, type BrandTone, type PersistedWebsiteProject, type PrimaryCallToAction, type SiteSectionId, type SiteSettings, type StructuredWebsiteContent, type VisualStyle, type WebsiteProjectInput } from "@/lib/website-types";
 
 type ProjectRecord = {
   id: string; createdAt: Date; updatedAt: Date; businessName: string; businessType: string; businessDescription: string;
   serviceArea: string; phone: string; email: string; yearsInBusiness: number | null; brandTone: string; businessStory: string | null; targetAudience: string | null; differentiators: string | null; customerPriorities: string | null; factualNotes: string | null;
-  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null; siteSettings: unknown;
+  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null; siteSettings: unknown; isDemo: boolean; featured: boolean; demoTitle: string | null; demoDescription: string | null; demoSortOrder: number | null;
 };
 
 function toProject(record: ProjectRecord): PersistedWebsiteProject {
   const savedSettings = record.siteSettings as Partial<SiteSettings> | null;
-  const siteSettings: SiteSettings = { hiddenSections: (savedSettings?.hiddenSections ?? []).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)), sectionOrder: (savedSettings?.sectionOrder ?? defaultSiteSettings.sectionOrder).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)) };
+  const siteSettings: SiteSettings = { layoutFamily: savedSettings?.layoutFamily === "Conversion" || savedSettings?.layoutFamily === "Showcase" ? savedSettings.layoutFamily : "Classic", hiddenSections: (savedSettings?.hiddenSections ?? []).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)), sectionOrder: (savedSettings?.sectionOrder ?? defaultSiteSettings.sectionOrder).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)), theme: { ...defaultThemeSettings, ...(savedSettings?.theme ?? {}) } };
   const project: PersistedWebsiteProject = {
     ...createWebsiteProject({
       business: {
@@ -25,7 +25,7 @@ function toProject(record: ProjectRecord): PersistedWebsiteProject {
       }, visualStyle: record.visualStyle as VisualStyle,
       workSamples: record.workSamples.map((sample) => ({ id: sample.id, mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory ?? "", locationNote: sample.locationNote ?? "", cloudinaryPublicId: sample.cloudinaryPublicId ?? undefined, width: sample.width ?? undefined, height: sample.height ?? undefined, duration: sample.duration ?? undefined, format: sample.format ?? undefined, bytes: sample.bytes ?? undefined })),
       testimonials: record.testimonials.map((testimonial) => ({ id: testimonial.id, customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType ?? "", locationNote: testimonial.locationNote ?? "", rating: testimonial.rating?.toString() ?? "" })),
-    }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt, siteSettings,
+    }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt, siteSettings, isDemo: record.isDemo, featured: record.featured, demoTitle: record.demoTitle ?? undefined, demoDescription: record.demoDescription ?? undefined, demoSortOrder: record.demoSortOrder ?? undefined,
   };
   const generatedContent = validateGeneratedContent(record.generatedContent);
   if (!generatedContent) return project;
@@ -72,8 +72,25 @@ export async function saveGeneratedContent(id: string, content: StructuredWebsit
   await prisma.websiteProject.update({ where: { id }, data: { generatedContent: JSON.parse(JSON.stringify(content)), contentGeneratedAt: new Date() } as never });
 }
 
+export async function listDemoProjects(featuredOnly = false) {
+  const records = await prisma.websiteProject.findMany({ where: { isDemo: true, ...(featuredOnly ? { featured: true } : {}) }, orderBy: [{ demoSortOrder: "asc" }, { updatedAt: "desc" }], include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
+  return (records as unknown as ProjectRecord[]).map(toProject);
+}
+
+export async function getDemoProject(slug: string) {
+  const record = await prisma.websiteProject.findFirst({ where: { slug, isDemo: true }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
+  return record ? toProject(record as unknown as ProjectRecord) : null;
+}
+
 export async function saveSiteContent(id: string, content: StructuredWebsiteContent, siteSettings: SiteSettings) {
   const validated = validateGeneratedContent(content);
   if (!validated) throw new ProjectInputValidationError("Website content is incomplete or invalid.");
+  if (![siteSettings.theme.primaryColor, siteSettings.theme.accentColor, siteSettings.theme.backgroundColor, siteSettings.theme.textColor, siteSettings.theme.mutedTextColor].every((color) => /^#[0-9a-fA-F]{6}$/.test(color)) || (siteSettings.theme.logoUrl && !/^https?:\/\//.test(siteSettings.theme.logoUrl))) throw new ProjectInputValidationError("Use valid six-digit HEX colors and an http or https logo URL.");
   await prisma.websiteProject.update({ where: { id }, data: { generatedContent: JSON.parse(JSON.stringify(validated)), siteSettings: JSON.parse(JSON.stringify(siteSettings)) } as never });
+}
+
+export async function saveDemoSettings(id: string, settings: import("@/lib/website-types").DemoSettings) {
+  const sortOrder = settings.demoSortOrder.trim() === "" ? null : Number(settings.demoSortOrder);
+  if (sortOrder !== null && (!Number.isInteger(sortOrder) || sortOrder < 0)) throw new ProjectInputValidationError("Display order must be a non-negative whole number.");
+  await prisma.websiteProject.update({ where: { id }, data: { isDemo: settings.isDemo, featured: settings.isDemo && settings.featured, demoTitle: settings.demoTitle.trim() || null, demoDescription: settings.demoDescription.trim() || null, demoSortOrder: sortOrder } as never });
 }

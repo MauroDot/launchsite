@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Brand } from "@/components/brand";
 
-const links = [{ href: "#how-it-works", label: "How it works" }, { href: "#examples", label: "Examples" }, { href: "#why-launchsite", label: "Why LaunchSite" }];
+const links = [{ href: "/#how-it-works", label: "How it works" }, { href: "/examples", label: "Examples" }, { href: "/#why-launchsite", label: "Why LaunchSite" }];
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);

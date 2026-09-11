@@ -7,6 +7,8 @@ export type BrandTone = (typeof brandTones)[number];
 export type PrimaryCallToAction = (typeof callToActions)[number];
 
 export type BusinessService = { id: string; name: string; description: string; notes: string };
+export type WorkSample = { id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string; locationNote: string };
+export type Testimonial = { id: string; customerName: string; testimonialText: string; serviceType: string; locationNote: string; rating: string };
 
 export type BusinessProfile = {
   businessName: string;
@@ -30,6 +32,8 @@ export type BusinessProfile = {
 export type WebsiteProjectInput = {
   business: BusinessProfile;
   visualStyle: VisualStyle;
+  workSamples: WorkSample[];
+  testimonials: Testimonial[];
 };
 
 export type GeneratedSiteContent = {
@@ -51,7 +55,7 @@ export type WebsiteProject = WebsiteProjectInput & {
 export type StructuredWebsiteContent = {
   businessName: string;
   tagline: string;
-  hero: { headline: string; supportingText: string; primaryCTA: string; secondaryCTA?: string };
+  hero: { headline: string; supportingText: string; primaryCTA: string; secondaryCTA?: string | null };
   services: Array<{ name: string; description: string }>;
   about: { heading: string; body: string };
   benefits: string[];

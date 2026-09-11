@@ -11,6 +11,11 @@ enum ProjectStatus {
   DRAFT
 }
 
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
 model WebsiteProject {
   id                  String        @id @default(cuid())
   createdAt           DateTime      @default(now())
@@ -36,6 +41,41 @@ model WebsiteProject {
   generatedContent    Json?
   contentGeneratedAt  DateTime?
   services            WebsiteService[]
+  workSamples         WebsiteWorkSample[]
+  testimonials        WebsiteTestimonial[]
+}
+
+model WebsiteWorkSample {
+  id              String        @id @default(cuid())
+  projectId       String
+  project         WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mediaType       MediaType
+  mediaUrl        String
+  title           String
+  description     String
+  serviceCategory String?
+  locationNote    String?
+  position        Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([projectId, position])
+}
+
+model WebsiteTestimonial {
+  id              String        @id @default(cuid())
+  projectId       String
+  project         WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customerName    String
+  testimonialText String
+  serviceType     String?
+  locationNote    String?
+  rating          Int?
+  position        Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([projectId, position])
 }
 
 model WebsiteService {

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- User-supplied external URLs cannot be preconfigured for Next Image. */
 import type { WebsiteProject } from "@/lib/website-types";
 
 const styles = {
@@ -7,6 +8,10 @@ const styles = {
   Friendly: { accent: "bg-lime-400", ink: "text-slate-950", surface: "bg-emerald-950", card: "bg-lime-50", button: "bg-lime-400 text-slate-950" },
   Minimal: { accent: "bg-stone-800", ink: "text-stone-900", surface: "bg-stone-900", card: "bg-stone-100", button: "bg-stone-900 text-white" },
 } as const;
+
+function safeMediaUrl(value: string) {
+  try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:" ? value : null; } catch { return null; }
+}
 
 export function SiteRenderer({ project }: { project: WebsiteProject }) {
   const { business } = project;
@@ -25,5 +30,7 @@ export function SiteRenderer({ project }: { project: WebsiteProject }) {
     <section className={`${theme.card}`} id="contact"><div className="mx-auto grid max-w-6xl gap-8 px-5 py-18 sm:px-8 lg:grid-cols-2 lg:items-end"><div><p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-600">Let’s talk</p><h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">Ready when you are.</h2><p className="mt-4 max-w-lg leading-7 text-slate-600">{content.contactPrompt}</p></div><div className="rounded-xl bg-white p-6 shadow-sm"><p className="font-semibold">{business.callToAction}</p><div className="mt-4 flex flex-col gap-2 text-sm text-slate-600"><a className="hover:text-slate-950" href={phoneHref}>{business.phone}</a><a className="hover:text-slate-950" href={emailHref}>{business.email}</a><p>{business.serviceArea}</p></div></div></div></section>
     <footer className="border-t border-slate-200 px-5 py-7 text-center text-sm text-slate-500">© {new Date().getFullYear()} {business.businessName}. All rights reserved.</footer>
     {aiContent && <section className="mx-auto max-w-6xl px-5 py-18 sm:px-8"><p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Questions, answered</p><div className="mt-6 grid gap-4 md:grid-cols-2">{aiContent.faq.map((item) => <div className="rounded-xl border border-slate-200 p-5" key={item.question}><h3 className="font-semibold">{item.question}</h3><p className="mt-2 leading-6 text-slate-600">{item.answer}</p></div>)}</div></section>}
+    {project.workSamples.length > 0 && <section className="mx-auto max-w-6xl px-5 py-18 sm:px-8"><p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Our work</p><h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">A look at what we do.</h2><div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{project.workSamples.map((sample) => { const url = safeMediaUrl(sample.mediaUrl); return <article className="overflow-hidden rounded-xl border border-slate-200" key={sample.id}>{url ? sample.mediaType === "IMAGE" ? <img alt={sample.title} className="aspect-[4/3] w-full object-cover" src={url} /> : <video className="aspect-[4/3] w-full bg-slate-900 object-cover" controls preload="metadata" src={url} /> : <div className="aspect-[4/3] bg-slate-100" />}<div className="p-5"><h3 className="font-semibold">{sample.title}</h3>{sample.description && <p className="mt-2 text-sm leading-6 text-slate-600">{sample.description}</p>}{(sample.serviceCategory || sample.locationNote) && <p className="mt-3 text-xs font-medium text-slate-500">{[sample.serviceCategory, sample.locationNote].filter(Boolean).join(" · ")}</p>}</div></article>; })}</div></section>}
+    {project.testimonials.length > 0 && <section className={`${theme.card} border-y border-slate-200`}><div className="mx-auto max-w-6xl px-5 py-18 sm:px-8"><p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Customer feedback</p><h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">Kind words from real customers.</h2><div className="mt-8 grid gap-5 md:grid-cols-2">{project.testimonials.map((testimonial) => <figure className="rounded-xl bg-white p-6 shadow-sm" key={testimonial.id}><blockquote className="text-lg leading-8 text-slate-700">“{testimonial.testimonialText}”</blockquote><figcaption className="mt-5 text-sm font-semibold">{testimonial.customerName}{testimonial.locationNote ? ` · ${testimonial.locationNote}` : ""}{testimonial.rating ? <span className="ml-2 font-normal text-slate-500">{testimonial.rating}/5</span> : null}</figcaption></figure>)}</div></div></section>}
   </article>;
 }

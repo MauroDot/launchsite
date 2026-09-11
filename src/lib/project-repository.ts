@@ -7,7 +7,7 @@ import type { BrandTone, PersistedWebsiteProject, PrimaryCallToAction, Structure
 type ProjectRecord = {
   id: string; createdAt: Date; updatedAt: Date; businessName: string; businessType: string; businessDescription: string;
   serviceArea: string; phone: string; email: string; yearsInBusiness: number | null; brandTone: string; businessStory: string | null; targetAudience: string | null; differentiators: string | null; customerPriorities: string | null; factualNotes: string | null;
-  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null;
+  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null;
 };
 
 function toProject(record: ProjectRecord): PersistedWebsiteProject {
@@ -20,6 +20,8 @@ function toProject(record: ProjectRecord): PersistedWebsiteProject {
         businessStory: record.businessStory ?? "", targetAudience: record.targetAudience ?? "", differentiators: record.differentiators ?? "", customerPriorities: record.customerPriorities ?? "", factualNotes: record.factualNotes ?? "",
         services: record.services.map((service) => ({ id: `saved-${service.position}`, name: service.name, description: service.description, notes: service.notes ?? "" })),
       }, visualStyle: record.visualStyle as VisualStyle,
+      workSamples: record.workSamples.map((sample) => ({ id: sample.id, mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory ?? "", locationNote: sample.locationNote ?? "" })),
+      testimonials: record.testimonials.map((testimonial) => ({ id: testimonial.id, customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType ?? "", locationNote: testimonial.locationNote ?? "", rating: testimonial.rating?.toString() ?? "" })),
     }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt,
     ...(validateGeneratedContent(record.generatedContent) ? { generatedContent: validateGeneratedContent(record.generatedContent)!, contentGeneratedAt: record.contentGeneratedAt ?? undefined } : {}),
   };
@@ -34,24 +36,24 @@ export async function createProject(input: WebsiteProjectInput): Promise<Persist
   const validated = validateProjectInput(input);
   if (!validated.valid) throw new Error(validated.message);
   const slug = `${input.business.businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "website"}-${crypto.randomUUID().slice(0, 8)}`;
-  const record = await prisma.websiteProject.create({ data: { ...fieldsFor(input), slug, services: { create: validated.services.map((service, position) => ({ name: service.name, description: service.description, notes: service.notes || null, position })) } }, include: { services: { orderBy: { position: "asc" } } } });
+  const record = await prisma.websiteProject.create({ data: { ...fieldsFor(input), slug, services: { create: validated.services.map((service, position) => ({ name: service.name, description: service.description, notes: service.notes || null, position })) }, workSamples: { create: validated.workSamples.map((sample, position) => ({ mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory || null, locationNote: sample.locationNote || null, position })) }, testimonials: { create: validated.testimonials.map((testimonial, position) => ({ customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType || null, locationNote: testimonial.locationNote || null, rating: testimonial.rating ? Number(testimonial.rating) : null, position })) } }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return toProject(record as unknown as ProjectRecord);
 }
 
 export async function updateProject(id: string, input: WebsiteProjectInput): Promise<PersistedWebsiteProject> {
   const validated = validateProjectInput(input);
   if (!validated.valid) throw new Error(validated.message);
-  const record = await prisma.websiteProject.update({ where: { id }, data: { ...fieldsFor(input), services: { deleteMany: {}, create: validated.services.map((service, position) => ({ name: service.name, description: service.description, notes: service.notes || null, position })) } }, include: { services: { orderBy: { position: "asc" } } } });
+  const record = await prisma.websiteProject.update({ where: { id }, data: { ...fieldsFor(input), services: { deleteMany: {}, create: validated.services.map((service, position) => ({ name: service.name, description: service.description, notes: service.notes || null, position })) }, workSamples: { deleteMany: {}, create: validated.workSamples.map((sample, position) => ({ mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory || null, locationNote: sample.locationNote || null, position })) }, testimonials: { deleteMany: {}, create: validated.testimonials.map((testimonial, position) => ({ customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType || null, locationNote: testimonial.locationNote || null, rating: testimonial.rating ? Number(testimonial.rating) : null, position })) } }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return toProject(record as unknown as ProjectRecord);
 }
 
 export async function getProject(id: string) {
-  const record = await prisma.websiteProject.findUnique({ where: { id }, include: { services: { orderBy: { position: "asc" } } } });
+  const record = await prisma.websiteProject.findUnique({ where: { id }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return record ? toProject(record as unknown as ProjectRecord) : null;
 }
 
 export async function listProjects() {
-  const records = await prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, include: { services: { orderBy: { position: "asc" } } } });
+  const records = await prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return records.map((record) => toProject(record as unknown as ProjectRecord));
 }
 

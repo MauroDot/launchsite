@@ -8,6 +8,8 @@ This foundation includes a responsive marketing homepage, shared application chr
 
 It uses PostgreSQL with Prisma to persist factual business profiles, structured services, and separately generated website content. It intentionally includes no authentication, billing, publishing, or external infrastructure.
 
+Work samples and testimonials are stored as URL-and-text metadata only. LaunchSite does not store media binaries in PostgreSQL; direct file uploads are a future milestone.
+
 ## Local setup
 
 1. Install Node.js 20.9 or newer.

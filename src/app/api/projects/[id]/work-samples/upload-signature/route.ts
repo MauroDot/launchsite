@@ -1,11 +1,18 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireProjectAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  try {
+    await requireProjectAccess(id);
+  } catch {
+    // Deliberately indistinguishable from a missing project.
+    return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  }
   const config = { cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, apiKey: process.env.CLOUDINARY_API_KEY, apiSecret: process.env.CLOUDINARY_API_SECRET };
   if (!config.cloudName || !config.apiKey || !config.apiSecret) return NextResponse.json({ error: "Media uploads are not configured." }, { status: 503 });
   const body = await request.json().catch(() => null) as { mediaType?: string } | null;

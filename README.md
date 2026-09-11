@@ -6,7 +6,7 @@ LaunchSite is a Next.js application that will help small-business owners turn a 
 
 This foundation includes a responsive marketing homepage, shared application chrome, and local website-creation wizard. The wizard turns entered business details into a deterministic, responsive website preview. Its typed input and generated content models are intentionally separated from the renderer so a future AI/content service can supply structured content without replacing the website UI.
 
-It uses PostgreSQL with Prisma to persist factual business profiles, structured services, and separately generated website content. It intentionally includes no authentication, billing, publishing, or external infrastructure.
+It uses PostgreSQL with Prisma to persist factual business profiles, structured services, separately generated website content, and Auth.js authentication records. Billing and publishing are not implemented yet.
 
 Work samples and testimonials are stored as URL-and-text metadata only. LaunchSite does not store media binaries in PostgreSQL; direct file uploads are a future milestone.
 
@@ -82,3 +82,15 @@ CLOUDINARY_API_SECRET="your_api_secret"
 Only the cloud name and API key are returned to the browser for a signed upload. `CLOUDINARY_API_SECRET` is used only by the server signature route and must never use a `NEXT_PUBLIC_` prefix.
 
 `NEXT_PUBLIC_APP_URL` is the public URL of the application. It defaults to `http://localhost:3000` in `.env.example`; set it to the production URL during deployment.
+
+## Authentication
+
+LaunchSite currently uses Google OAuth only. Set `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` in `.env`. A Gmail address is not required: users may sign in with any email address that is associated with a Google Account.
+
+To bootstrap the LaunchSite owner console, add the owner addresses to the server-only `ADMIN_EMAILS` variable. Use a comma-separated list and sign in again with one of those Google accounts:
+
+```env
+ADMIN_EMAILS="owner@your-domain.com,second-owner@your-domain.com"
+```
+
+Matching accounts are promoted to `ADMIN` server-side. Do not expose this variable to the browser. The `/admin` routes are also checked against the persisted role on every request.

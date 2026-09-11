@@ -1,0 +1,9 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+
+export default async function AccountPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login?callbackUrl=/account");
+
+  return <section className="mx-auto max-w-3xl px-5 py-16"><p className="eyebrow">Account</p><h1 className="mt-4 text-3xl font-semibold">Your account</h1><dl className="mt-8 rounded-xl border p-6"><dt className="text-sm text-slate-500">Name</dt><dd className="mb-5 font-semibold">{session.user.name ?? "Not provided"}</dd><dt className="text-sm text-slate-500">Email</dt><dd className="font-semibold">{session.user.email}</dd></dl><section className="mt-6 rounded-xl border p-6"><h2 className="text-lg font-semibold">Authentication</h2><p className="mt-2 font-medium">Signed in with Google</p><p className="mt-1 text-sm text-slate-600">Password and account-security changes are managed through your Google account.</p></section></section>;
+}

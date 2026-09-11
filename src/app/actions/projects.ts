@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createProject, updateProject } from "@/lib/project-repository";
-import { getProject, saveDemoSettings, saveGeneratedContent, saveSiteContent } from "@/lib/project-repository";
+import { createAdminProject, createProject, updateProject } from "@/lib/project-repository";
+import { changeUserRole, getProject, saveDemoSettings, saveFeaturedBusiness, saveGeneratedContent, saveSiteContent } from "@/lib/project-repository";
 import { generateWebsiteContent } from "@/lib/openai-content-generator";
 import { ProjectInputValidationError } from "@/lib/project-validation";
 import type { DemoSettings, SiteSettings, StructuredWebsiteContent, WebsiteProjectInput } from "@/lib/website-types";
+import type { FeaturedBusinessInput } from "@/lib/project-repository";
 
 type ActionResult = { ok: true; id: string } | { ok: false; error: string; workSampleErrors?: Record<string, string> };
 
@@ -24,6 +25,18 @@ export async function saveProjectAction(input: WebsiteProjectInput, id?: string)
     if (error instanceof ProjectInputValidationError) {
       return { ok: false, error: error.message, workSampleErrors: error.workSampleErrors };
     }
+    return { ok: false, error: errorMessage(error) };
+  }
+}
+
+export async function createAdminProjectAction(input: WebsiteProjectInput, isDemo: boolean): Promise<ActionResult> {
+  try {
+    const project = await createAdminProject(input, isDemo);
+    revalidatePath("/admin");
+    revalidatePath("/admin/projects");
+    return { ok: true, id: project.id };
+  } catch (error) {
+    if (error instanceof ProjectInputValidationError) return { ok: false, error: error.message, workSampleErrors: error.workSampleErrors };
     return { ok: false, error: errorMessage(error) };
   }
 }
@@ -62,3 +75,7 @@ export async function saveSiteContentAction(id: string, content: StructuredWebsi
 }
 
 export async function saveDemoSettingsAction(id: string, settings: DemoSettings): Promise<ActionResult> { try { await saveDemoSettings(id, settings); revalidatePath("/dashboard"); revalidatePath(`/dashboard/projects/${id}`); revalidatePath("/examples"); return { ok: true, id }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not save example settings." }; } }
+
+export async function saveFeaturedBusinessAction(id: string, settings: FeaturedBusinessInput): Promise<ActionResult> { try { await saveFeaturedBusiness(id, settings); revalidatePath("/admin"); revalidatePath("/admin/projects"); revalidatePath(`/dashboard/projects/${id}`); revalidatePath("/"); return { ok: true, id }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not save featured business settings." }; } }
+
+export async function changeUserRoleAction(id: string, role: "USER" | "ADMIN"): Promise<ActionResult> { try { await changeUserRole(id, role); revalidatePath("/admin/users"); return { ok: true, id }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Could not change user role." }; } }

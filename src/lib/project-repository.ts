@@ -1,6 +1,6 @@
 import { createWebsiteProject } from "@/lib/generate-site-content";
 import { prisma } from "@/lib/prisma";
-import { validateProjectInput } from "@/lib/project-validation";
+import { ProjectInputValidationError, validateProjectInput } from "@/lib/project-validation";
 import { validateGeneratedContent } from "@/lib/generated-content";
 import type { BrandTone, PersistedWebsiteProject, PrimaryCallToAction, StructuredWebsiteContent, VisualStyle, WebsiteProjectInput } from "@/lib/website-types";
 
@@ -34,7 +34,7 @@ function fieldsFor(input: WebsiteProjectInput) {
 
 export async function createProject(input: WebsiteProjectInput): Promise<PersistedWebsiteProject> {
   const validated = validateProjectInput(input);
-  if (!validated.valid) throw new Error(validated.message);
+  if (!validated.valid) throw new ProjectInputValidationError(validated.message, validated.workSampleErrors);
   const slug = `${input.business.businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "website"}-${crypto.randomUUID().slice(0, 8)}`;
   const record = await prisma.websiteProject.create({ data: { ...fieldsFor(input), slug, services: { create: validated.services.map((service, position) => ({ name: service.name, description: service.description, notes: service.notes || null, position })) }, workSamples: { create: validated.workSamples.map((sample, position) => ({ mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory || null, locationNote: sample.locationNote || null, cloudinaryPublicId: sample.cloudinaryPublicId || null, width: sample.width ?? null, height: sample.height ?? null, duration: sample.duration ?? null, format: sample.format || null, bytes: sample.bytes ?? null, position })) }, testimonials: { create: validated.testimonials.map((testimonial, position) => ({ customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType || null, locationNote: testimonial.locationNote || null, rating: testimonial.rating ? Number(testimonial.rating) : null, position })) } }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return toProject(record as unknown as ProjectRecord);
@@ -42,7 +42,7 @@ export async function createProject(input: WebsiteProjectInput): Promise<Persist
 
 export async function updateProject(id: string, input: WebsiteProjectInput): Promise<PersistedWebsiteProject> {
   const validated = validateProjectInput(input);
-  if (!validated.valid) throw new Error(validated.message);
+  if (!validated.valid) throw new ProjectInputValidationError(validated.message, validated.workSampleErrors);
   const record = await prisma.websiteProject.update({ where: { id }, data: { ...fieldsFor(input), services: { deleteMany: {}, create: validated.services.map((service, position) => ({ name: service.name, description: service.description, notes: service.notes || null, position })) }, workSamples: { deleteMany: {}, create: validated.workSamples.map((sample, position) => ({ mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory || null, locationNote: sample.locationNote || null, cloudinaryPublicId: sample.cloudinaryPublicId || null, width: sample.width ?? null, height: sample.height ?? null, duration: sample.duration ?? null, format: sample.format || null, bytes: sample.bytes ?? null, position })) }, testimonials: { deleteMany: {}, create: validated.testimonials.map((testimonial, position) => ({ customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType || null, locationNote: testimonial.locationNote || null, rating: testimonial.rating ? Number(testimonial.rating) : null, position })) } }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return toProject(record as unknown as ProjectRecord);
 }

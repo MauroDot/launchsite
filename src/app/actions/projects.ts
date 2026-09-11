@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { createProject, updateProject } from "@/lib/project-repository";
 import { getProject, saveGeneratedContent } from "@/lib/project-repository";
 import { generateWebsiteContent } from "@/lib/openai-content-generator";
+import { ProjectInputValidationError } from "@/lib/project-validation";
 import type { WebsiteProjectInput } from "@/lib/website-types";
 
-type ActionResult = { ok: true; id: string } | { ok: false; error: string };
+type ActionResult = { ok: true; id: string } | { ok: false; error: string; workSampleErrors?: Record<string, string> };
 
 function errorMessage(error: unknown) {
   console.error("Website project database operation failed", error);
@@ -20,6 +21,9 @@ export async function saveProjectAction(input: WebsiteProjectInput, id?: string)
     revalidatePath(`/dashboard/projects/${project.id}`);
     return { ok: true, id: project.id };
   } catch (error) {
+    if (error instanceof ProjectInputValidationError) {
+      return { ok: false, error: error.message, workSampleErrors: error.workSampleErrors };
+    }
     return { ok: false, error: errorMessage(error) };
   }
 }

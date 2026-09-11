@@ -4,7 +4,9 @@ LaunchSite is a Next.js application that will help small-business owners turn a 
 
 ## Current foundation
 
-This initial release includes a responsive marketing homepage, shared application chrome, and placeholder routes for the future dashboard, website-creation, sign-in, and registration experiences. It intentionally includes no database, authentication, AI integration, billing, or external infrastructure.
+This foundation includes a responsive marketing homepage, shared application chrome, and local website-creation wizard. The wizard turns entered business details into a deterministic, responsive website preview. Its typed input and generated content models are intentionally separated from the renderer so a future AI/content service can supply structured content without replacing the website UI.
+
+It intentionally includes no database, authentication, AI integration, billing, publishing, or external infrastructure.
 
 ## Local setup
 

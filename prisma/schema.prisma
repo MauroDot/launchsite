@@ -15,6 +15,7 @@ enum MediaType {
   IMAGE
   VIDEO
 }
+
 enum UserRole {
   USER
   ADMIN
@@ -35,19 +36,19 @@ model User {
 }
 
 model Account {
-  id                String   @id @default(cuid())
+  id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?  @db.Text
-  access_token      String?  @db.Text
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String?  @db.Text
+  id_token          String? @db.Text
   session_state     String?
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -69,83 +70,87 @@ model VerificationToken {
 }
 
 model WebsiteProject {
-  id                  String        @id @default(cuid())
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  businessName        String
-  businessType        String
-  businessDescription String
-  businessStory       String?
-  targetAudience      String?
-  differentiators     String?
-  customerPriorities  String?
-  factualNotes        String?
-  serviceArea         String
-  phone               String
-  email               String
-  yearsInBusiness     Int?
-  brandTone           String
-  primaryCallToAction String
+  id                    String               @id @default(cuid())
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  businessName          String
+  businessType          String
+  businessDescription   String
+  businessStory         String?
+  targetAudience        String?
+  differentiators       String?
+  customerPriorities    String?
+  factualNotes          String?
+  serviceArea           String
+  phone                 String
+  email                 String
+  yearsInBusiness       Int?
+  brandTone             String
+  primaryCallToAction   String
   secondaryCallToAction String?
-  visualStyle         String
-  slug                String        @unique
-  status              ProjectStatus @default(DRAFT)
-  generatedContent    Json?
-  contentGeneratedAt  DateTime?
-  siteSettings        Json?
-  isDemo              Boolean       @default(false)
-  featured            Boolean       @default(false)
-  demoTitle           String?
-  demoDescription     String?
-  demoSortOrder       Int?
-  userId              String?
-  user                User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  services            WebsiteService[]
-  workSamples         WebsiteWorkSample[]
-  testimonials        WebsiteTestimonial[]
-  featuredBusiness    FeaturedBusiness?
+  visualStyle           String
+  slug                  String               @unique
+  status                ProjectStatus        @default(DRAFT)
+  generatedContent      Json?
+  contentGeneratedAt    DateTime?
+  siteSettings          Json?
+  isDemo                Boolean              @default(false)
+  featured              Boolean              @default(false)
+  demoTitle             String?
+  demoDescription       String?
+  demoSortOrder         Int?
+  isPublished           Boolean              @default(false)
+  publishedAt           DateTime?
+  lastPublishedAt       DateTime?
+  publicSlug            String?              @unique
+  userId                String?
+  user                  User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  services              WebsiteService[]
+  workSamples           WebsiteWorkSample[]
+  testimonials          WebsiteTestimonial[]
+  featuredBusiness      FeaturedBusiness?
 }
 
 model FeaturedBusiness {
-  id                  String         @id @default(cuid())
-  projectId           String         @unique
-  project             WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  enabled             Boolean        @default(false)
-  displayTitle        String?
+  id                     String         @id @default(cuid())
+  projectId              String         @unique
+  project                WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  enabled                Boolean        @default(false)
+  displayTitle           String?
   promotionalDescription String?
-  imageUrl            String?
-  sortOrder           Int?
-  startsAt            DateTime?
-  endsAt              DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  imageUrl               String?
+  sortOrder              Int?
+  startsAt               DateTime?
+  endsAt                 DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 }
 
 model WebsiteWorkSample {
-  id              String        @id @default(cuid())
-  projectId       String
-  project         WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  mediaType       MediaType
-  mediaUrl        String
+  id                 String         @id @default(cuid())
+  projectId          String
+  project            WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mediaType          MediaType
+  mediaUrl           String
   cloudinaryPublicId String?
-  width           Int?
-  height          Int?
-  duration        Float?
-  format          String?
-  bytes           Int?
-  title           String
-  description     String
-  serviceCategory String?
-  locationNote    String?
-  position        Int
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  width              Int?
+  height             Int?
+  duration           Float?
+  format             String?
+  bytes              Int?
+  title              String
+  description        String
+  serviceCategory    String?
+  locationNote       String?
+  position           Int
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@unique([projectId, position])
 }
 
 model WebsiteTestimonial {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   projectId       String
   project         WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   customerName    String
@@ -154,20 +159,20 @@ model WebsiteTestimonial {
   locationNote    String?
   rating          Int?
   position        Int
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@unique([projectId, position])
 }
 
 model WebsiteService {
-  id        String         @id @default(cuid())
-  name      String
-  description String @default("")
-  notes     String?
-  position  Int
-  projectId String
-  project   WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id          String         @id @default(cuid())
+  name        String
+  description String         @default("")
+  notes       String?
+  position    Int
+  projectId   String
+  project     WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, position])
 }

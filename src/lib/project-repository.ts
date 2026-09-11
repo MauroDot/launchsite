@@ -4,13 +4,16 @@ import { ProjectInputValidationError, validateProjectInput } from "@/lib/project
 import { validateGeneratedContent } from "@/lib/generated-content";
 import { assertContentGroundedInProject } from "@/lib/content-grounding";
 import { requireAdmin, requireProjectAccess, requireUser } from "@/lib/access";
+import { normalizePublicSlug, slugCandidate, validatePublicSlug } from "@/lib/public-slug";
 import { defaultSiteSettings, defaultThemeSettings, siteSectionIds, type BrandTone, type PersistedWebsiteProject, type PrimaryCallToAction, type SiteSectionId, type SiteSettings, type StructuredWebsiteContent, type VisualStyle, type WebsiteProjectInput } from "@/lib/website-types";
 
 type ProjectRecord = {
   id: string; createdAt: Date; updatedAt: Date; businessName: string; businessType: string; businessDescription: string;
   serviceArea: string; phone: string; email: string; yearsInBusiness: number | null; brandTone: string; businessStory: string | null; targetAudience: string | null; differentiators: string | null; customerPriorities: string | null; factualNotes: string | null;
-  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null; siteSettings: unknown; isDemo: boolean; featured: boolean; demoTitle: string | null; demoDescription: string | null; demoSortOrder: number | null;
+  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null; siteSettings: unknown; isDemo: boolean; featured: boolean; demoTitle: string | null; demoDescription: string | null; demoSortOrder: number | null; isPublished: boolean; publishedAt: Date | null; lastPublishedAt: Date | null; publicSlug: string | null;
 };
+
+type PublicationRecord = { id: string; businessName: string; publicSlug: string | null; publishedAt: Date | null };
 
 function toProject(record: ProjectRecord): PersistedWebsiteProject {
   const savedSettings = record.siteSettings as Partial<SiteSettings> | null;
@@ -26,7 +29,7 @@ function toProject(record: ProjectRecord): PersistedWebsiteProject {
       }, visualStyle: record.visualStyle as VisualStyle,
       workSamples: record.workSamples.map((sample) => ({ id: sample.id, mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory ?? "", locationNote: sample.locationNote ?? "", cloudinaryPublicId: sample.cloudinaryPublicId ?? undefined, width: sample.width ?? undefined, height: sample.height ?? undefined, duration: sample.duration ?? undefined, format: sample.format ?? undefined, bytes: sample.bytes ?? undefined })),
       testimonials: record.testimonials.map((testimonial) => ({ id: testimonial.id, customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType ?? "", locationNote: testimonial.locationNote ?? "", rating: testimonial.rating?.toString() ?? "" })),
-    }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt, siteSettings, isDemo: record.isDemo, featured: record.featured, demoTitle: record.demoTitle ?? undefined, demoDescription: record.demoDescription ?? undefined, demoSortOrder: record.demoSortOrder ?? undefined,
+    }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt, siteSettings, isDemo: record.isDemo, featured: record.featured, demoTitle: record.demoTitle ?? undefined, demoDescription: record.demoDescription ?? undefined, demoSortOrder: record.demoSortOrder ?? undefined, isPublished: record.isPublished, publishedAt: record.publishedAt ?? undefined, lastPublishedAt: record.lastPublishedAt ?? undefined, publicSlug: record.publicSlug ?? undefined,
   };
   const generatedContent = validateGeneratedContent(record.generatedContent);
   if (!generatedContent) return project;
@@ -64,6 +67,40 @@ export async function updateProject(id: string, input: WebsiteProjectInput): Pro
 export async function getProject(id: string) {
   await requireProjectAccess(id);
   const record = await prisma.websiteProject.findUnique({ where: { id }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
+  return record ? toProject(record as unknown as ProjectRecord) : null;
+}
+
+async function availablePublicSlug(value: string, projectId: string) {
+  const base = validatePublicSlug(value) ?? validatePublicSlug(normalizePublicSlug(value));
+  if (!base) throw new ProjectInputValidationError("Use a public URL with 3–72 lowercase letters, numbers, and hyphens.");
+  for (let attempt = 1; attempt < 1000; attempt += 1) {
+    const candidate = slugCandidate(base, attempt);
+    const match = await prisma.websiteProject.findFirst({ where: { publicSlug: candidate, NOT: { id: projectId } }, select: { id: true } } as never);
+    if (!match) return candidate;
+  }
+  throw new ProjectInputValidationError("We couldn’t find an available public URL. Please try a more specific one.");
+}
+
+export async function publishProject(id: string, requestedSlug?: string) {
+  await requireProjectAccess(id);
+  const project = await prisma.websiteProject.findUnique({ where: { id }, select: { id: true, businessName: true, publicSlug: true, publishedAt: true } } as never) as unknown as PublicationRecord | null;
+  if (!project) throw new ProjectInputValidationError("Project not found.");
+  const publicSlug = await availablePublicSlug(requestedSlug?.trim() || project.publicSlug || project.businessName, id);
+  const now = new Date();
+  const record = await prisma.websiteProject.update({ where: { id }, data: { isPublished: true, publicSlug, publishedAt: project.publishedAt ?? now, lastPublishedAt: now }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
+  return toProject(record as unknown as ProjectRecord);
+}
+
+export async function unpublishProject(id: string) {
+  await requireProjectAccess(id);
+  const record = await prisma.websiteProject.update({ where: { id }, data: { isPublished: false }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
+  return toProject(record as unknown as ProjectRecord);
+}
+
+export async function getPublicProject(publicSlug: string) {
+  const slug = validatePublicSlug(publicSlug);
+  if (!slug) return null;
+  const record = await prisma.websiteProject.findFirst({ where: { publicSlug: slug, isPublished: true }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return record ? toProject(record as unknown as ProjectRecord) : null;
 }
 
@@ -142,7 +179,7 @@ export async function createAdminProject(input: WebsiteProjectInput, isDemo: boo
 
 export async function listAdminProjects() {
   await requireAdmin();
-  return prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, businessName: true, businessType: true, isDemo: true, userId: true, updatedAt: true, featuredBusiness: { select: { enabled: true } } } } as never) as unknown as Promise<Array<{ id: string; businessName: string; businessType: string; isDemo: boolean; userId: string | null; updatedAt: Date; featuredBusiness: { enabled: boolean } | null }>>;
+  return prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, businessName: true, businessType: true, isDemo: true, isPublished: true, publicSlug: true, userId: true, updatedAt: true, featuredBusiness: { select: { enabled: true } } } } as never) as unknown as Promise<Array<{ id: string; businessName: string; businessType: string; isDemo: boolean; isPublished: boolean; publicSlug: string | null; userId: string | null; updatedAt: Date; featuredBusiness: { enabled: boolean } | null }>>;
 }
 
 export async function getFeaturedBusiness(projectId: string) {
@@ -171,7 +208,7 @@ export async function saveFeaturedBusiness(projectId: string, input: FeaturedBus
 
 export async function listPublicFeaturedBusinesses() {
   const now = new Date();
-  const records = await featuredBusinessDelegate().findMany({ where: { enabled: true, OR: [{ startsAt: null }, { startsAt: { lte: now } }], AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }], project: { isDemo: true } }, orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }], include: { project: { include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } } });
+  const records = await featuredBusinessDelegate().findMany({ where: { enabled: true, OR: [{ startsAt: null }, { startsAt: { lte: now } }], AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }], project: { OR: [{ isDemo: true }, { isPublished: true }] } }, orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }], include: { project: { include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } } });
   return records.map((record) => ({ ...record, project: toProject(record.project) }));
 }
 

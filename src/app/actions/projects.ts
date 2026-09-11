@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createAdminProject, createProject, updateProject } from "@/lib/project-repository";
+import { createAdminProject, createProject, publishProject, unpublishProject, updateProject } from "@/lib/project-repository";
 import { changeUserRole, getProject, saveDemoSettings, saveFeaturedBusiness, saveGeneratedContent, saveSiteContent } from "@/lib/project-repository";
 import { generateWebsiteContent } from "@/lib/openai-content-generator";
 import { ProjectInputValidationError } from "@/lib/project-validation";
 import type { DemoSettings, SiteSettings, StructuredWebsiteContent, WebsiteProjectInput } from "@/lib/website-types";
 import type { FeaturedBusinessInput } from "@/lib/project-repository";
 
-type ActionResult = { ok: true; id: string } | { ok: false; error: string; workSampleErrors?: Record<string, string> };
+type ActionResult = { ok: true; id: string; publicSlug?: string } | { ok: false; error: string; workSampleErrors?: Record<string, string> };
 
 function errorMessage(error: unknown) {
   console.error("Website project database operation failed", error);
@@ -20,6 +20,7 @@ export async function saveProjectAction(input: WebsiteProjectInput, id?: string)
     const project = id ? await updateProject(id, input) : await createProject(input);
     revalidatePath("/dashboard");
     revalidatePath(`/dashboard/projects/${project.id}`);
+    revalidatePath("/site/[slug]", "page");
     return { ok: true, id: project.id };
   } catch (error) {
     if (error instanceof ProjectInputValidationError) {
@@ -52,6 +53,7 @@ export async function generateProjectContentAction(id: string): Promise<ActionRe
     const content = await generateWebsiteContent(project);
     await saveGeneratedContent(id, content);
     revalidatePath(`/dashboard/projects/${id}`);
+    revalidatePath("/site/[slug]", "page");
     return { ok: true, id };
   } catch (error) {
     console.error("Website content generation failed", { projectId: id, error });
@@ -67,10 +69,35 @@ export async function saveSiteContentAction(id: string, content: StructuredWebsi
     revalidatePath(`/dashboard/projects/${id}`);
     revalidatePath(`/dashboard/projects/${id}/preview`);
     revalidatePath(`/dashboard/projects/${id}/edit-site`);
+    revalidatePath(`/site/[slug]`, "page");
     return { ok: true, id };
   } catch (error) {
     console.error("Website content save failed", { projectId: id, error });
     return { ok: false, error: "We couldn't save your website edits. Your business facts were not changed." };
+  }
+}
+
+export async function publishProjectAction(id: string, requestedSlug?: string): Promise<ActionResult> {
+  try {
+    const project = await publishProject(id, requestedSlug);
+    revalidatePath("/");
+    revalidatePath(`/dashboard/projects/${id}`);
+    revalidatePath(`/site/${project.publicSlug}`);
+    return { ok: true, id, publicSlug: project.publicSlug };
+  } catch (error) {
+    return { ok: false, error: error instanceof ProjectInputValidationError ? error.message : "We couldn’t publish this website right now. Please try again." };
+  }
+}
+
+export async function unpublishProjectAction(id: string): Promise<ActionResult> {
+  try {
+    const project = await unpublishProject(id);
+    revalidatePath("/");
+    revalidatePath(`/dashboard/projects/${id}`);
+    if (project.publicSlug) revalidatePath(`/site/${project.publicSlug}`);
+    return { ok: true, id, publicSlug: project.publicSlug };
+  } catch {
+    return { ok: false, error: "We couldn’t unpublish this website right now. Please try again." };
   }
 }
 

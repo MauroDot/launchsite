@@ -1,5 +1,9 @@
 # LaunchSite
 
+## Publishing
+
+Publishing uses a LaunchSite-hosted URL at `/site/<public-slug>`. Published sites read their current saved content and theme, so later saved edits become live immediately. Unpublishing removes the public route while retaining the private project. `publicSlug` is separate from the internal project slug so custom domains or LaunchSite subdomains can map to the same site later.
+
 LaunchSite is a Next.js application that will help small-business owners turn a description of their business into a professional website.
 
 ## Current foundation

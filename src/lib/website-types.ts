@@ -87,6 +87,10 @@ export type PersistedWebsiteProject = WebsiteProject & {
   demoTitle?: string;
   demoDescription?: string;
   demoSortOrder?: number;
+  isPublished: boolean;
+  publishedAt?: Date;
+  lastPublishedAt?: Date;
+  publicSlug?: string;
 };
 
 export type DemoSettings = { isDemo: boolean; featured: boolean; demoTitle: string; demoDescription: string; demoSortOrder: string };

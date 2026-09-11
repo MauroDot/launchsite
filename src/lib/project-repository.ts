@@ -129,7 +129,7 @@ export async function saveSiteContent(id: string, content: StructuredWebsiteCont
   await requireProjectAccess(id);
   const validated = validateGeneratedContent(content);
   if (!validated) throw new ProjectInputValidationError("Website content is incomplete or invalid.");
-  if (![siteSettings.theme.primaryColor, siteSettings.theme.accentColor, siteSettings.theme.backgroundColor, siteSettings.theme.textColor, siteSettings.theme.mutedTextColor].every((color) => /^#[0-9a-fA-F]{6}$/.test(color)) || (siteSettings.theme.logoUrl && !/^https?:\/\//.test(siteSettings.theme.logoUrl))) throw new ProjectInputValidationError("Use valid six-digit HEX colors and an http or https logo URL.");
+  if (![siteSettings.theme.primaryColor, siteSettings.theme.accentColor, siteSettings.theme.backgroundColor, siteSettings.theme.surfaceColor, siteSettings.theme.cardColor, siteSettings.theme.textColor, siteSettings.theme.bodyTextColor, siteSettings.theme.mutedTextColor].every((color) => /^#[0-9a-fA-F]{6}$/.test(color)) || (siteSettings.theme.logoUrl && !/^https?:\/\//.test(siteSettings.theme.logoUrl))) throw new ProjectInputValidationError("Use valid six-digit HEX colors and an http or https logo URL.");
   await prisma.websiteProject.update({ where: { id }, data: { generatedContent: JSON.parse(JSON.stringify(validated)), siteSettings: JSON.parse(JSON.stringify(siteSettings)) } as never });
 }
 

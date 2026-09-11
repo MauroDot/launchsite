@@ -6,7 +6,7 @@ LaunchSite is a Next.js application that will help small-business owners turn a 
 
 This foundation includes a responsive marketing homepage, shared application chrome, and local website-creation wizard. The wizard turns entered business details into a deterministic, responsive website preview. Its typed input and generated content models are intentionally separated from the renderer so a future AI/content service can supply structured content without replacing the website UI.
 
-It uses PostgreSQL with Prisma to persist website projects and services. It intentionally includes no authentication, AI integration, billing, publishing, or external infrastructure.
+It uses PostgreSQL with Prisma to persist factual business profiles, structured services, and separately generated website content. It intentionally includes no authentication, billing, publishing, or external infrastructure.
 
 ## Local setup
 
@@ -55,8 +55,16 @@ npm.cmd run db:validate
 npm.cmd run db:migrate -- --name init
 ```
 
+When updating an existing Task 004 database to the richer business profile, run:
+
+```powershell
+npm.cmd run db:migrate
+```
+
 ## Environment variables
 
 `DATABASE_URL` is required by Prisma. Set it in your uncommitted `.env` file, for example: `postgresql://USER:PASSWORD@localhost:5432/launchsite?schema=public`.
+
+`OPENAI_API_KEY` is required only to generate AI website content. Create an API key in the OpenAI platform and place it in your uncommitted `.env` file. It is accessed only in server-side code and must never be prefixed with `NEXT_PUBLIC_`.
 
 `NEXT_PUBLIC_APP_URL` is the public URL of the application. It defaults to `http://localhost:3000` in `.env.example`; set it to the production URL during deployment.

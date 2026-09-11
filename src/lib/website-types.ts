@@ -6,17 +6,25 @@ export type VisualStyle = (typeof visualStyles)[number];
 export type BrandTone = (typeof brandTones)[number];
 export type PrimaryCallToAction = (typeof callToActions)[number];
 
+export type BusinessService = { id: string; name: string; description: string; notes: string };
+
 export type BusinessProfile = {
   businessName: string;
   category: string;
   description: string;
+  businessStory: string;
+  targetAudience: string;
+  differentiators: string;
+  customerPriorities: string;
+  factualNotes: string;
   serviceArea: string;
   phone: string;
   email: string;
-  services: string;
+  services: BusinessService[];
   yearsInBusiness: string;
   tone: BrandTone;
   callToAction: PrimaryCallToAction;
+  secondaryCallToAction: string;
 };
 
 export type WebsiteProjectInput = {
@@ -36,6 +44,20 @@ export type GeneratedSiteContent = {
 
 export type WebsiteProject = WebsiteProjectInput & {
   content: GeneratedSiteContent;
+  generatedContent?: StructuredWebsiteContent;
+  contentGeneratedAt?: Date;
+};
+
+export type StructuredWebsiteContent = {
+  businessName: string;
+  tagline: string;
+  hero: { headline: string; supportingText: string; primaryCTA: string; secondaryCTA?: string };
+  services: Array<{ name: string; description: string }>;
+  about: { heading: string; body: string };
+  benefits: string[];
+  faq: Array<{ question: string; answer: string }>;
+  contact: { heading: string; body: string };
+  seo: { title: string; description: string };
 };
 
 export type PersistedWebsiteProject = WebsiteProject & {
@@ -53,8 +75,14 @@ export const initialBusinessProfile: BusinessProfile = {
   serviceArea: "",
   phone: "",
   email: "",
-  services: "",
+  businessStory: "",
+  targetAudience: "",
+  differentiators: "",
+  customerPriorities: "",
+  factualNotes: "",
+  services: [],
   yearsInBusiness: "",
   tone: "Warm and welcoming",
   callToAction: "Request an estimate",
+  secondaryCallToAction: "",
 };

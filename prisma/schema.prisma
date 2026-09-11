@@ -18,21 +18,31 @@ model WebsiteProject {
   businessName        String
   businessType        String
   businessDescription String
+  businessStory       String?
+  targetAudience      String?
+  differentiators     String?
+  customerPriorities  String?
+  factualNotes        String?
   serviceArea         String
   phone               String
   email               String
   yearsInBusiness     Int?
   brandTone           String
   primaryCallToAction String
+  secondaryCallToAction String?
   visualStyle         String
   slug                String        @unique
   status              ProjectStatus @default(DRAFT)
+  generatedContent    Json?
+  contentGeneratedAt  DateTime?
   services            WebsiteService[]
 }
 
 model WebsiteService {
   id        String         @id @default(cuid())
   name      String
+  description String @default("")
+  notes     String?
   position  Int
   projectId String
   project   WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)

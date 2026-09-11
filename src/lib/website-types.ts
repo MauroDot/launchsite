@@ -50,6 +50,7 @@ export type WebsiteProject = WebsiteProjectInput & {
   content: GeneratedSiteContent;
   generatedContent?: StructuredWebsiteContent;
   contentGeneratedAt?: Date;
+  siteSettings?: SiteSettings;
 };
 
 export type StructuredWebsiteContent = {
@@ -63,6 +64,11 @@ export type StructuredWebsiteContent = {
   contact: { heading: string; body: string };
   seo: { title: string; description: string };
 };
+
+export const siteSectionIds = ["hero", "services", "about", "benefits", "work", "testimonials", "faq", "contact"] as const;
+export type SiteSectionId = (typeof siteSectionIds)[number];
+export type SiteSettings = { hiddenSections: SiteSectionId[]; sectionOrder: SiteSectionId[] };
+export const defaultSiteSettings: SiteSettings = { hiddenSections: [], sectionOrder: [...siteSectionIds] };
 
 export type PersistedWebsiteProject = WebsiteProject & {
   id: string;

@@ -3,15 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { ProjectInputValidationError, validateProjectInput } from "@/lib/project-validation";
 import { validateGeneratedContent } from "@/lib/generated-content";
 import { assertContentGroundedInProject } from "@/lib/content-grounding";
-import type { BrandTone, PersistedWebsiteProject, PrimaryCallToAction, StructuredWebsiteContent, VisualStyle, WebsiteProjectInput } from "@/lib/website-types";
+import { defaultSiteSettings, siteSectionIds, type BrandTone, type PersistedWebsiteProject, type PrimaryCallToAction, type SiteSectionId, type SiteSettings, type StructuredWebsiteContent, type VisualStyle, type WebsiteProjectInput } from "@/lib/website-types";
 
 type ProjectRecord = {
   id: string; createdAt: Date; updatedAt: Date; businessName: string; businessType: string; businessDescription: string;
   serviceArea: string; phone: string; email: string; yearsInBusiness: number | null; brandTone: string; businessStory: string | null; targetAudience: string | null; differentiators: string | null; customerPriorities: string | null; factualNotes: string | null;
-  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null;
+  primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null; siteSettings: unknown;
 };
 
 function toProject(record: ProjectRecord): PersistedWebsiteProject {
+  const savedSettings = record.siteSettings as Partial<SiteSettings> | null;
+  const siteSettings: SiteSettings = { hiddenSections: (savedSettings?.hiddenSections ?? []).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)), sectionOrder: (savedSettings?.sectionOrder ?? defaultSiteSettings.sectionOrder).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)) };
   const project: PersistedWebsiteProject = {
     ...createWebsiteProject({
       business: {
@@ -23,7 +25,7 @@ function toProject(record: ProjectRecord): PersistedWebsiteProject {
       }, visualStyle: record.visualStyle as VisualStyle,
       workSamples: record.workSamples.map((sample) => ({ id: sample.id, mediaType: sample.mediaType, mediaUrl: sample.mediaUrl, title: sample.title, description: sample.description, serviceCategory: sample.serviceCategory ?? "", locationNote: sample.locationNote ?? "", cloudinaryPublicId: sample.cloudinaryPublicId ?? undefined, width: sample.width ?? undefined, height: sample.height ?? undefined, duration: sample.duration ?? undefined, format: sample.format ?? undefined, bytes: sample.bytes ?? undefined })),
       testimonials: record.testimonials.map((testimonial) => ({ id: testimonial.id, customerName: testimonial.customerName, testimonialText: testimonial.testimonialText, serviceType: testimonial.serviceType ?? "", locationNote: testimonial.locationNote ?? "", rating: testimonial.rating?.toString() ?? "" })),
-    }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt,
+    }), id: record.id, slug: record.slug, status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt, siteSettings,
   };
   const generatedContent = validateGeneratedContent(record.generatedContent);
   if (!generatedContent) return project;
@@ -68,4 +70,10 @@ export async function listProjects() {
 
 export async function saveGeneratedContent(id: string, content: StructuredWebsiteContent) {
   await prisma.websiteProject.update({ where: { id }, data: { generatedContent: JSON.parse(JSON.stringify(content)), contentGeneratedAt: new Date() } as never });
+}
+
+export async function saveSiteContent(id: string, content: StructuredWebsiteContent, siteSettings: SiteSettings) {
+  const validated = validateGeneratedContent(content);
+  if (!validated) throw new ProjectInputValidationError("Website content is incomplete or invalid.");
+  await prisma.websiteProject.update({ where: { id }, data: { generatedContent: JSON.parse(JSON.stringify(validated)), siteSettings: JSON.parse(JSON.stringify(siteSettings)) } as never });
 }

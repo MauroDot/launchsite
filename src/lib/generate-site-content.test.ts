@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateSiteContent } from "./generate-site-content";
+import { createEditableContentFromDeterministic, createWebsiteProject, generateSiteContent } from "./generate-site-content";
+import { validateGeneratedContent } from "./generated-content";
 import type { BusinessProfile } from "./website-types";
 
 function business(overrides: Partial<BusinessProfile>): BusinessProfile {
@@ -15,4 +16,11 @@ test("deterministic fallback keeps automotive and landscaping projects isolated"
   assert.match(JSON.stringify(automotive).toLowerCase(), /auto repair|brake repair/);
   for (const phrase of ["vehicle repair", "auto repair", "mechanic", "brakes"]) assert.doesNotMatch(landscapingText, new RegExp(phrase));
   assert.match(landscapingText, /landscaping|lawn care|lawn mowing/);
+});
+
+test("deterministic content adapts to the complete editable schema", () => {
+  const profile = business({ businessName: "GreenLine Outdoor Services", category: "Landscaping & Lawn Care" });
+  const editable = createEditableContentFromDeterministic(createWebsiteProject({ business: profile, visualStyle: "Modern", workSamples: [], testimonials: [] }));
+  assert.deepEqual(validateGeneratedContent(editable), editable);
+  assert.equal(editable.hero.primaryCTA, profile.callToAction);
 });

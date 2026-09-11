@@ -1,8 +1,10 @@
 import { generatedContentJsonSchema, validateGeneratedContent } from "@/lib/generated-content";
 import { assertContentGroundedInProject } from "@/lib/content-grounding";
+import { extractResponseText, responseSummary, type ResponsesApiResponse } from "@/lib/openai-response-parser";
 import type { PersistedWebsiteProject, StructuredWebsiteContent } from "@/lib/website-types";
 
 const model = "gpt-5";
+
 
 export async function generateWebsiteContent(project: PersistedWebsiteProject): Promise<StructuredWebsiteContent> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -21,10 +23,15 @@ export async function generateWebsiteContent(project: PersistedWebsiteProject): 
     console.error("OpenAI Responses API request failed", { status: response.status, statusText: response.statusText, details });
     throw new Error("OpenAI content generation request failed.");
   }
-  const result = await response.json() as { output_text?: string };
-  if (!result.output_text) throw new Error("OpenAI returned no structured content.");
+  const result = await response.json() as ResponsesApiResponse;
+  if (result.status === "failed" || result.status === "incomplete" || result.status === "cancelled") console.error("OpenAI Responses API returned an unfinished response", { ...responseSummary(result), error: result.error, incompleteDetails: result.incomplete_details });
+  const responseText = extractResponseText(result);
+  if (!responseText) {
+    console.error("OpenAI Responses API returned no structured text", responseSummary(result));
+    throw new Error("OpenAI returned no structured content.");
+  }
   let parsed: unknown;
-  try { parsed = JSON.parse(result.output_text); } catch { throw new Error("OpenAI returned invalid JSON."); }
+  try { parsed = JSON.parse(responseText); } catch { throw new Error("OpenAI returned invalid JSON."); }
   const content = validateGeneratedContent(parsed);
   if (!content) throw new Error("OpenAI content did not match the required schema.");
   assertContentGroundedInProject(project, content);

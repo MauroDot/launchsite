@@ -9,6 +9,7 @@ export function GenerateContentButton({ projectId, hasGeneratedContent }: { proj
   const [state, setState] = useState<"idle" | "generating" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   async function generate() {
+    if (hasGeneratedContent && !window.confirm("Regenerating may replace website copy you have edited. Continue?")) return;
     setState("generating"); setMessage("");
     const result = await generateProjectContentAction(projectId);
     if (!result.ok) { setState("error"); setMessage(result.error); return; }

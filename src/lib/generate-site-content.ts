@@ -1,4 +1,4 @@
-import type { BusinessProfile, GeneratedSiteContent, WebsiteProject, WebsiteProjectInput } from "@/lib/website-types";
+import type { BusinessProfile, GeneratedSiteContent, StructuredWebsiteContent, WebsiteProject, WebsiteProjectInput } from "@/lib/website-types";
 
 function yearsPhrase(years: string): string {
   const numericYears = Number.parseInt(years, 10);
@@ -34,4 +34,22 @@ export function generateSiteContent(business: BusinessProfile): GeneratedSiteCon
 
 export function createWebsiteProject(input: WebsiteProjectInput): WebsiteProject {
   return { ...input, content: generateSiteContent(input.business) };
+}
+
+export function createEditableContentFromDeterministic(project: WebsiteProject): StructuredWebsiteContent {
+  const { business, content } = project;
+  return {
+    businessName: business.businessName,
+    tagline: content.tagline,
+    hero: { headline: content.heroHeading, supportingText: content.heroDescription, primaryCTA: business.callToAction, secondaryCTA: business.secondaryCallToAction || null },
+    services: content.services,
+    about: { heading: `About ${business.businessName}`, body: content.about },
+    benefits: content.benefits,
+    faq: [
+      { question: `What areas does ${business.businessName} serve?`, answer: `${business.businessName} serves ${business.serviceArea}.` },
+      { question: "How can I get started?", answer: `Use the ${business.callToAction.toLowerCase()} option to tell us what you need.` },
+    ],
+    contact: { heading: "Let’s talk", body: content.contactPrompt },
+    seo: { title: `${business.businessName} | ${business.category}`, description: business.description },
+  };
 }

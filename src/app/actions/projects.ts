@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createProject, updateProject } from "@/lib/project-repository";
-import { getProject, saveGeneratedContent } from "@/lib/project-repository";
+import { getProject, saveGeneratedContent, saveSiteContent } from "@/lib/project-repository";
 import { generateWebsiteContent } from "@/lib/openai-content-generator";
 import { ProjectInputValidationError } from "@/lib/project-validation";
-import type { WebsiteProjectInput } from "@/lib/website-types";
+import type { SiteSettings, StructuredWebsiteContent, WebsiteProjectInput } from "@/lib/website-types";
 
 type ActionResult = { ok: true; id: string } | { ok: false; error: string; workSampleErrors?: Record<string, string> };
 
@@ -45,5 +45,18 @@ export async function generateProjectContentAction(id: string): Promise<ActionRe
     return { ok: false, error: "We couldn’t generate content right now. Your existing website content is unchanged." };
   } finally {
     activeGenerations.delete(id);
+  }
+}
+
+export async function saveSiteContentAction(id: string, content: StructuredWebsiteContent, settings: SiteSettings): Promise<ActionResult> {
+  try {
+    await saveSiteContent(id, content, settings);
+    revalidatePath(`/dashboard/projects/${id}`);
+    revalidatePath(`/dashboard/projects/${id}/preview`);
+    revalidatePath(`/dashboard/projects/${id}/edit-site`);
+    return { ok: true, id };
+  } catch (error) {
+    console.error("Website content save failed", { projectId: id, error });
+    return { ok: false, error: "We couldn't save your website edits. Your business facts were not changed." };
   }
 }

@@ -40,6 +40,12 @@ model WebsiteProject {
   status              ProjectStatus @default(DRAFT)
   generatedContent    Json?
   contentGeneratedAt  DateTime?
+  siteSettings        Json?
+  isDemo              Boolean       @default(false)
+  featured            Boolean       @default(false)
+  demoTitle           String?
+  demoDescription     String?
+  demoSortOrder       Int?
   services            WebsiteService[]
   workSamples         WebsiteWorkSample[]
   testimonials        WebsiteTestimonial[]

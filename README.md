@@ -120,3 +120,6 @@ ADMIN_EMAILS="owner@your-domain.com,second-owner@your-domain.com"
 ```
 
 Matching accounts are promoted to `ADMIN` server-side. Do not expose this variable to the browser. The `/admin` routes are also checked against the persisted role on every request.
+## Lead capture
+
+Published sites include an accessible contact form on both LaunchSite URLs and active custom domains. Submissions are stored as leads before optional email notification, so a Resend outage does not lose a customer message. Configure `RESEND_API_KEY` and `LEAD_NOTIFICATION_FROM` to enable notifications; the customer lead inbox is available at `/dashboard/leads`.

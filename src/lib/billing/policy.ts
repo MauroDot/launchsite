@@ -27,8 +27,7 @@ export function entitlementsFromBilling(account: BillingState | null) {
   return {
     plan, subscriptionStatus: account?.subscriptionStatus ?? null, hasActiveSubscription,
     canPublish: hasActiveSubscription, maxPublishedSites: plans[plan].maxPublishedSites,
-    // Temporary testing/product-evaluation access: Starter domains can be
-    // moved back to Business-only by changing this entitlement rule later.
+    // Starter and Business plans include custom domains.
     canUseCustomDomain: hasActiveSubscription && (plan === "STARTER" || plan === "BUSINESS"),
     currentPeriodEnd: account?.currentPeriodEnd ?? null, cancelAtPeriodEnd: account?.cancelAtPeriodEnd ?? false,
     pendingPlan: account?.pendingPlan ?? null, pendingPlanEffectiveAt: account?.pendingPlanEffectiveAt ?? null,

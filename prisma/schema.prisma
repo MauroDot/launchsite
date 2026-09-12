@@ -35,6 +35,17 @@ enum DomainStatus {
   DISCONNECTED
 }
 
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+  SPAM
+}
+
+enum LeadSource {
+  CONTACT_FORM
+}
+
 model User {
   id            String           @id @default(cuid())
   name          String?
@@ -156,6 +167,7 @@ model WebsiteProject {
   testimonials          WebsiteTestimonial[]
   featuredBusiness      FeaturedBusiness?
   domain                Domain?
+  leads                 Lead[]
 }
 
 model Domain {
@@ -168,6 +180,24 @@ model Domain {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   project    WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Lead {
+  id        String     @id @default(cuid())
+  projectId String
+  name      String
+  email     String
+  phone     String?
+  message   String
+  status    LeadStatus @default(NEW)
+  source    LeadSource @default(CONTACT_FORM)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  project   WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model FeaturedBusiness {

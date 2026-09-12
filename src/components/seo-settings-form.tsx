@@ -36,7 +36,7 @@ export function SeoSettingsForm({ projectId, initial }: { projectId: string; ini
   };
 
   const save = async () => { setSaving(true); const result = await updateProjectSeoAction(projectId, settings); setSaving(false); setMessage(result.ok ? "SEO settings saved." : result.error); };
-  return <section className="mt-8 rounded-2xl border border-slate-200 p-6">
+  return <section className="mt-8 rounded-2xl border border-slate-200 p-6" id="seo-settings">
     <h2 className="text-xl font-semibold">SEO and social sharing</h2><p className="mt-2 text-sm text-slate-600">Search engines may take time to update changes.</p>
     <div className="mt-5 grid gap-4">
       <label className="text-sm font-semibold">Search title <span className="font-normal text-slate-500">(recommended 50–60 characters)</span><input className="mt-1 w-full rounded border p-3" maxLength={300} value={settings.seoTitle} onChange={(event) => update({ seoTitle: event.target.value })} /></label>

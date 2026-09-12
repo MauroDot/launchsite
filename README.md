@@ -132,6 +132,12 @@ Published sites include an accessible contact form on both LaunchSite URLs and a
 
 The lead inbox is a lightweight CRM: owners can move leads through New, Contacted, Qualified, Won, and Lost; set or clear follow-up dates; search and filter by project, status, follow-up state, and date range; sort by newest, oldest, or follow-up date; and export an ownership-scoped CSV. Internal notes are separate private records and are never rendered publicly or included in notifications. CSV cells are quoted and formula-like values are prefixed to prevent spreadsheet formula injection. Lists use 25-lead pagination. Existing lead persistence, Resend notifications, and `LEAD_SUBMITTED` analytics events remain unchanged.
 
+## Onboarding and commercial readiness
+
+New accounts with no real projects see a concise first-site empty state with links to create a site, view examples, and review pricing. Demo projects are excluded from this state. Project details include a dynamic nine-item readiness checklist covering business facts, description, contact details, imagery, SEO, preview, contact form availability, and publication. Custom domains, phone numbers, and dedicated social images are recommendations and never hard publish gates.
+
+Public draft pages are available at `/terms`, `/privacy`, and `/support`. These documents describe current LaunchSite behavior and are product drafts; attorney review is recommended before commercial launch. Set `NEXT_PUBLIC_SUPPORT_EMAIL` to show a support contact; when absent, the support page provides general guidance without a broken address.
+
 ## First-party analytics
 
 Published slug and active custom-domain pages send a small fire-and-forget page-view event after load. Analytics uses a random anonymous first-party browser ID in local storage scoped to each published project; it does not store IP addresses, use third-party cookies, or build cross-site profiles. Referrers are reduced to a safe hostname and broad source category. Visitor counts are approximate, and analytics failures never block page rendering. Customer analytics is available at `/dashboard/analytics`, with seven-day and 30-day views, visitors, leads, conversion rate, daily trends, source summaries, and slug-versus-custom-domain traffic.

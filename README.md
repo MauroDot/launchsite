@@ -130,6 +130,8 @@ Matching accounts are promoted to `ADMIN` server-side. Do not expose this variab
 
 Published sites include an accessible contact form on both LaunchSite URLs and active custom domains. Submissions are stored as leads before optional email notification, so a Resend outage does not lose a customer message. Configure `RESEND_API_KEY` and `LEAD_NOTIFICATION_FROM` to enable notifications; the customer lead inbox is available at `/dashboard/leads`.
 
+The lead inbox is a lightweight CRM: owners can move leads through New, Contacted, Qualified, Won, and Lost; set or clear follow-up dates; search and filter by project, status, follow-up state, and date range; sort by newest, oldest, or follow-up date; and export an ownership-scoped CSV. Internal notes are separate private records and are never rendered publicly or included in notifications. CSV cells are quoted and formula-like values are prefixed to prevent spreadsheet formula injection. Lists use 25-lead pagination. Existing lead persistence, Resend notifications, and `LEAD_SUBMITTED` analytics events remain unchanged.
+
 ## First-party analytics
 
 Published slug and active custom-domain pages send a small fire-and-forget page-view event after load. Analytics uses a random anonymous first-party browser ID in local storage scoped to each published project; it does not store IP addresses, use third-party cookies, or build cross-site profiles. Referrers are reduced to a safe hostname and broad source category. Visitor counts are approximate, and analytics failures never block page rendering. Customer analytics is available at `/dashboard/analytics`, with seven-day and 30-day views, visitors, leads, conversion rate, daily trends, source summaries, and slug-versus-custom-domain traffic.

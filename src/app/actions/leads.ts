@@ -1,4 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { updateUserLeadStatus } from "@/lib/leads/service";
+import { addLeadNote, deleteLeadNote, updateLeadNote, updateUserLeadFollowUp, updateUserLeadStatus } from "@/lib/leads/service";
 export async function updateLeadStatusAction(id: string, status: string) { try { await updateUserLeadStatus(id, status); revalidatePath("/dashboard/leads"); revalidatePath(`/dashboard/leads/${id}`); return { ok: true as const }; } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Unable to update lead." }; } }
+export async function updateLeadFollowUpAction(id: string, value: string) { try { await updateUserLeadFollowUp(id, value); revalidatePath("/dashboard/leads"); revalidatePath(`/dashboard/leads/${id}`); return { ok: true as const }; } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Unable to save follow-up." }; } }
+export async function addLeadNoteAction(id: string, body: string) { try { await addLeadNote(id, body); revalidatePath(`/dashboard/leads/${id}`); return { ok: true as const }; } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Unable to save note." }; } }
+export async function updateLeadNoteAction(id: string, body: string) { try { await updateLeadNote(id, body); revalidatePath(`/dashboard/leads/${id}`); return { ok: true as const }; } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Unable to update note." }; } }
+export async function deleteLeadNoteAction(id: string) { try { await deleteLeadNote(id); revalidatePath(`/dashboard/leads/${id}`); return { ok: true as const }; } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Unable to delete note." }; } }

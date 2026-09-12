@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { exportUserLeads } from "@/lib/leads/service";
+import { leadsToCsv } from "@/lib/leads/csv";
+export async function GET(request: Request) { try { const url = new URL(request.url); const leads = await exportUserLeads({ search: url.searchParams.get("search") ?? undefined, projectId: url.searchParams.get("projectId") ?? undefined, status: url.searchParams.get("status") ?? undefined, followUp: (url.searchParams.get("followUp") as "all" | "upcoming" | "overdue" | "none") || "all", range: (url.searchParams.get("range") as "7" | "30" | "all") || "all", sort: "newest" }); const date = new Date().toISOString().slice(0, 10); return new NextResponse("\uFEFF" + leadsToCsv(leads), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="launchsite-leads-${date}.csv"` } }); } catch { return NextResponse.json({ error: "Unable to export leads." }, { status: 401 }); } }

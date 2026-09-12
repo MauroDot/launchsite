@@ -38,6 +38,9 @@ enum DomainStatus {
 enum LeadStatus {
   NEW
   CONTACTED
+  QUALIFIED
+  WON
+  LOST
   CLOSED
   SPAM
 }
@@ -66,6 +69,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   projects      WebsiteProject[]
+  leadNotes     LeadNote[]
   billingAccount BillingAccount?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -211,13 +215,31 @@ model Lead {
   message   String
   status    LeadStatus @default(NEW)
   source    LeadSource @default(CONTACT_FORM)
+  followUpAt DateTime?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   project   WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  notes     LeadNote[]
 
+  @@index([projectId, status, createdAt])
+  @@index([followUpAt])
   @@index([projectId])
   @@index([status])
   @@index([createdAt])
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId    String
+  userId    String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
+  @@index([userId])
 }
 
 model AnalyticsEvent {

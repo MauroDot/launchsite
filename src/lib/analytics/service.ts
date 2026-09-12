@@ -38,13 +38,15 @@ async function resolvePublishedProject(slug: string, host: string | null) {
   return project ? { id: project.id, hostType: "LAUNCHSITE_SLUG" as const } : null;
 }
 
-function validPath(value: unknown) { return typeof value === "string" && value.startsWith("/") && value.length <= 500 && !value.startsWith("/api") && !value.startsWith("/dashboard") && !value.startsWith("/admin") && !value.startsWith("/login") && !value.startsWith("/signup") && !value.startsWith("/register"); }
+function validPath(value: unknown) { return typeof value === "string" && value.startsWith("/") && value.length <= 500 && !value.includes("?") && !value.includes("#") && !value.startsWith("/api") && !value.startsWith("/dashboard") && !value.startsWith("/admin") && !value.startsWith("/login") && !value.startsWith("/signup") && !value.startsWith("/register"); }
 
 export async function recordPublicPageView(payload: unknown, host: string | null) {
   if (!payload || typeof payload !== "object") throw new Error("Invalid analytics payload.");
   const value = payload as { slug?: unknown; path?: unknown; referrer?: unknown; visitorKey?: unknown };
   if (typeof value.slug !== "string" || !validPath(value.path)) throw new Error("Invalid analytics payload.");
-  const path = value.path as string; const visitorKey = typeof value.visitorKey === "string" && /^[a-zA-Z0-9_-]{16,128}$/.test(value.visitorKey) ? value.visitorKey : null;
+  const path = value.path as string;
+  if (value.visitorKey !== undefined && value.visitorKey !== null && (typeof value.visitorKey !== "string" || !/^[a-zA-Z0-9_-]{16,128}$/.test(value.visitorKey))) throw new Error("Invalid analytics payload.");
+  const visitorKey = typeof value.visitorKey === "string" ? value.visitorKey : null;
   const project = await resolvePublishedProject(value.slug, host);
   if (!project) throw new Error("Published site not found.");
   const attribution = classifyReferrer(value.referrer);

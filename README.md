@@ -138,6 +138,14 @@ New accounts with no real projects see a concise first-site empty state with lin
 
 Public draft pages are available at `/terms`, `/privacy`, and `/support`. These documents describe current LaunchSite behavior and are product drafts; attorney review is recommended before commercial launch. Set `NEXT_PUBLIC_SUPPORT_EMAIL` to show a support contact; when absent, the support page provides general guidance without a broken address.
 
+## Production hardening
+
+Public lead submissions are limited to five requests per minute per request address, analytics ingestion to 120 per minute, and upload-signature requests to ten per minute per project/address. These limits use a bounded in-memory store, so each serverless instance has its own bucket and a durable shared limiter may be added later if abuse volume requires it. Lead validation keeps the honeypot, field limits, ownership/project resolution, and notification failure isolation.
+
+Analytics accepts only published projects and safe path/referrer/visitor-key values; query strings and raw IP addresses are not stored. Cloudinary signatures are authenticated and project scoped, with signed image/video format and file-size limits. AI generation remains owner-authorized and is limited to five generations per hour per user with bounded project input. Security headers include content-type sniffing protection, strict referrer and permissions policies, same-origin framing protection, production HSTS, and an incremental CSP compatible with Next.js, Google auth, Stripe, and Cloudinary.
+
+The application and API error paths return safe user-facing messages without stack traces or secrets. Structured failure logs include only operational identifiers and error types; credentials, tokens, cookies, raw IPs, and full lead messages are excluded. `npm audit` is clean at the time of this review.
+
 ## First-party analytics
 
 Published slug and active custom-domain pages send a small fire-and-forget page-view event after load. Analytics uses a random anonymous first-party browser ID in local storage scoped to each published project; it does not store IP addresses, use third-party cookies, or build cross-site profiles. Referrers are reduced to a safe hostname and broad source category. Visitor counts are approximate, and analytics failures never block page rendering. Customer analytics is available at `/dashboard/analytics`, with seven-day and 30-day views, visitors, leads, conversion rate, daily trends, source summaries, and slug-versus-custom-domain traffic.

@@ -8,6 +8,8 @@ import { generateWebsiteContent } from "@/lib/openai-content-generator";
 import { ProjectInputValidationError } from "@/lib/project-validation";
 import type { DemoSettings, SiteSettings, StructuredWebsiteContent, WebsiteProjectInput } from "@/lib/website-types";
 import type { FeaturedBusinessInput } from "@/lib/project-repository";
+import { requireUser } from "@/lib/access";
+import { rateLimit } from "@/lib/rate-limit";
 
 type ActionResult = { ok: true; id: string; publicSlug?: string } | { ok: false; error: string; code?: string; workSampleErrors?: Record<string, string> };
 
@@ -49,8 +51,12 @@ export async function generateProjectContentAction(id: string): Promise<ActionRe
   if (activeGenerations.has(id)) return { ok: false, error: "Content generation is already in progress." };
   activeGenerations.add(id);
   try {
+    const user = await requireUser();
+    const limited = rateLimit(`generation:${user.id}`, 5, 60 * 60_000);
+    if (!limited.ok) return { ok: false, error: "Content generation is temporarily limited. Please try again later." };
     const project = await getProject(id);
     if (!project) return { ok: false, error: "This project could not be found." };
+    if (JSON.stringify(project).length > 200_000) return { ok: false, error: "This project contains too much content to generate safely." };
     const content = await generateWebsiteContent(project);
     await saveGeneratedContent(id, content);
     revalidatePath(`/dashboard/projects/${id}`);

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { updateProjectSeoAction } from "@/app/actions/seo";
 
 type Settings = { seoTitle: string; seoDescription: string; socialImageUrl: string; allowIndexing: boolean };
-type SignedUpload = { error?: string; cloudName?: string; apiKey?: string; timestamp?: number; folder?: string; signature?: string; resourceType?: string };
+type SignedUpload = { error?: string; cloudName?: string; apiKey?: string; timestamp?: number; folder?: string; signature?: string; resourceType?: string; allowedFormats?: string; maxFileSize?: number };
 type UploadedImage = { secure_url?: string; public_id?: string; width?: number; height?: number; format?: string; error?: { message?: string } };
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -27,7 +27,7 @@ export function SeoSettingsForm({ projectId, initial }: { projectId: string; ini
       const signedResponse = await fetch(`/api/projects/${projectId}/work-samples/upload-signature`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mediaType: "IMAGE" }) });
       const signed = await signedResponse.json() as SignedUpload;
       if (!signedResponse.ok || !signed.cloudName || !signed.apiKey || !signed.timestamp || !signed.folder || !signed.signature || !signed.resourceType) throw new Error(signed.error ?? "Could not prepare upload.");
-      const form = new FormData(); form.append("file", file); form.append("api_key", signed.apiKey); form.append("timestamp", String(signed.timestamp)); form.append("folder", signed.folder); form.append("signature", signed.signature);
+      const form = new FormData(); form.append("file", file); form.append("api_key", signed.apiKey); form.append("timestamp", String(signed.timestamp)); form.append("folder", signed.folder); form.append("allowed_formats", signed.allowedFormats ?? "jpg,png,webp"); form.append("max_file_size", String(signed.maxFileSize ?? 10485760)); form.append("signature", signed.signature);
       const response = await fetch(`https://api.cloudinary.com/v1_1/${signed.cloudName}/${signed.resourceType}/upload`, { method: "POST", body: form });
       const asset = await response.json() as UploadedImage;
       if (!response.ok || !asset.secure_url || !asset.public_id) throw new Error(asset.error?.message ?? "Upload failed.");

@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound() { return <main className="mx-auto max-w-xl px-5 py-24 text-center"><h1 className="text-3xl font-semibold">Page not found</h1><p className="mt-3 text-slate-600">That LaunchSite page does not exist or is no longer available.</p><Link className="mt-6 inline-block rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white" href="/">Return home</Link></main>; }

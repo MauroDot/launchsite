@@ -146,6 +146,8 @@ Analytics accepts only published projects and safe path/referrer/visitor-key val
 
 The application and API error paths return safe user-facing messages without stack traces or secrets. Structured failure logs include only operational identifiers and error types; credentials, tokens, cookies, raw IPs, and full lead messages are excluded. `npm audit` is clean at the time of this review.
 
+See [docs/operations.md](docs/operations.md) for health monitoring, environment checks, backup guidance, recovery runbooks, rollback guidance, and service incident handling.
+
 ## First-party analytics
 
 Published slug and active custom-domain pages send a small fire-and-forget page-view event after load. Analytics uses a random anonymous first-party browser ID in local storage scoped to each published project; it does not store IP addresses, use third-party cookies, or build cross-site profiles. Referrers are reduced to a safe hostname and broad source category. Visitor counts are approximate, and analytics failures never block page rendering. Customer analytics is available at `/dashboard/analytics`, with seven-day and 30-day views, visitors, leads, conversion rate, daily trends, source summaries, and slug-versus-custom-domain traffic.

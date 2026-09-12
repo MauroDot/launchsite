@@ -1,0 +1,5 @@
+import "server-only";
+import { prisma } from "@/lib/prisma";
+import { requireProjectAccess } from "@/lib/access";
+export type SeoSettingsInput = { seoTitle: string; seoDescription: string; socialImageUrl: string; allowIndexing: boolean };
+export async function updateProjectSeo(projectId: string, input: SeoSettingsInput) { await requireProjectAccess(projectId); const title = input.seoTitle.trim(); const description = input.seoDescription.trim(); const image = input.socialImageUrl.trim(); if (title.length > 300 || description.length > 1000) throw new Error("SEO title or description is too long."); if (image) { let url: URL; try { url = new URL(image); } catch { throw new Error("Use a valid social image URL."); } if (!["http:", "https:"].includes(url.protocol)) throw new Error("Use a valid social image URL."); } await prisma.websiteProject.update({ where: { id: projectId }, data: { seoTitle: title || null, seoDescription: description || null, socialImageUrl: image || null, allowIndexing: Boolean(input.allowIndexing) } }); }

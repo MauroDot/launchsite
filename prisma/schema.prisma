@@ -175,6 +175,10 @@ model WebsiteProject {
   publishedAt           DateTime?
   lastPublishedAt       DateTime?
   publicSlug            String?              @unique
+  seoTitle              String?
+  seoDescription        String?
+  socialImageUrl        String?
+  allowIndexing         Boolean              @default(true)
   userId                String?
   user                  User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   services              WebsiteService[]

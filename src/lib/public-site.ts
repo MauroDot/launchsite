@@ -3,6 +3,11 @@ import { defaultSiteSettings, defaultThemeSettings, type WebsiteProject, type Si
 /** The renderer consumes website content, never a persisted project or account. */
 export type PublicSite = {
   publicSlug?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  socialImageUrl?: string;
+  allowIndexing: boolean;
+  customDomain?: string;
   business: Pick<WebsiteProject["business"], "businessName" | "category" | "description" | "phone" | "email" | "serviceArea" | "callToAction">;
   content: WebsiteProject["content"];
   generatedContent?: WebsiteProject["generatedContent"];
@@ -11,7 +16,14 @@ export type PublicSite = {
   testimonials: Array<Pick<WebsiteProject["testimonials"][number], "id" | "customerName" | "testimonialText">>;
 };
 
-export function toPublicSite(project: WebsiteProject & { publicSlug?: string }): PublicSite {
+export function toPublicSite(project: WebsiteProject & {
+  publicSlug?: string;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  socialImageUrl?: string | null;
+  allowIndexing?: boolean;
+  customDomain?: string;
+}): PublicSite {
   const { business: b, content: c, generatedContent: g } = project;
   const settings = project.siteSettings ?? defaultSiteSettings;
   // JSON fields can contain unknown keys. Copy only documented website fields,
@@ -19,7 +31,7 @@ export function toPublicSite(project: WebsiteProject & { publicSlug?: string }):
   const services = (items: Array<{ name: string; description: string }>) => items.map(({ name, description }) => ({ name, description }));
   const theme = Object.fromEntries(Object.keys({ ...defaultThemeSettings, logoUrl: "" }).map((key) => [key, settings.theme[key as keyof typeof settings.theme]])) as SiteSettings["theme"];
   return {
-    publicSlug: project.publicSlug,
+    publicSlug: project.publicSlug, seoTitle: project.seoTitle ?? undefined, seoDescription: project.seoDescription ?? undefined, socialImageUrl: project.socialImageUrl ?? undefined, allowIndexing: project.allowIndexing ?? true, customDomain: project.customDomain,
     business: { businessName: b.businessName, category: b.category, description: b.description, phone: b.phone, email: b.email, serviceArea: b.serviceArea, callToAction: b.callToAction },
     content: { tagline: c.tagline, heroHeading: c.heroHeading, heroDescription: c.heroDescription, services: services(c.services), about: c.about, benefits: [...c.benefits], contactPrompt: c.contactPrompt },
     generatedContent: g ? {

@@ -20,9 +20,13 @@ Featured Businesses use enabled placements within their optional date window. Pu
 
 Featured Business is a paid recurring add-on on an existing Starter or Business Stripe subscription. Configure `STRIPE_FEATURED_BUSINESS_PRICE_ID` with the recurring monthly Stripe Price ID. The add-on is added as a subscription item, never a second subscription. Customers select one of their own published sites from Account → Billing; cancellation is scheduled for the current period end when no other Stripe schedule is pending. Public placement requires synchronized local add-on entitlement and a currently published selected project, so public rendering never queries Stripe.
 
-The existing migration `20260912120000_public_publishing` adds `isPublished`, `publishedAt`, `lastPublishedAt`, and unique nullable `publicSlug`. `publishedAt` records first publication; `lastPublishedAt` records the latest publish/address operation, not every content save. No snapshot or version history is stored. On deployment, run `npx.cmd prisma migrate deploy` before starting the application; never reset an existing database. Set `NEXT_PUBLIC_APP_URL` in local `.env` and the deployment environment to the application's origin for canonical/Open Graph URLs. No new secrets are required.
+The existing migrations `20260912120000_public_publishing` and `20260912190000_project_seo` add publishing and per-project SEO fields. `publishedAt` records first publication; `lastPublishedAt` records the latest publish/address operation, not every content save. No snapshot or version history is stored. On deployment, run `npx.cmd prisma migrate deploy` before starting the application; never reset an existing database. Set `NEXT_PUBLIC_APP_URL` in local `.env` and the deployment environment to the application's origin for canonical/Open Graph URLs. No new secrets are required.
 
 See [Task 010 verification and acceptance checks](docs/task-010.md) for coverage and remaining manual checks.
+
+## Search and social sharing
+
+Each project can define an SEO title, description, social image URL, and indexing preference from its project settings. Empty fields use generated site SEO when available, then the business name and description. Images accept only HTTP(S) URLs and fall back to the first image work sample. Published pages emit canonical metadata, Open Graph and Twitter cards, and escaped Schema.org business JSON-LD. An active custom domain is canonical for its custom-domain page; a LaunchSite slug is canonical at `/site/<public-slug>` when no active custom domain exists. Projects with indexing disabled emit `noindex, nofollow`. `NEXT_PUBLIC_APP_URL` remains the sole canonical application origin for metadata and sitemap URLs.
 
 LaunchSite is a Next.js application that will help small-business owners turn a description of their business into a professional website.
 

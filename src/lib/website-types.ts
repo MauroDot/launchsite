@@ -91,6 +91,11 @@ export type PersistedWebsiteProject = WebsiteProject & {
   publishedAt?: Date;
   lastPublishedAt?: Date;
   publicSlug?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  socialImageUrl?: string;
+  allowIndexing: boolean;
+  customDomain?: string;
 };
 
 export type DemoSettings = { isDemo: boolean; featured: boolean; demoTitle: string; demoDescription: string; demoSortOrder: string };

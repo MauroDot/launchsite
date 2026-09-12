@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SiteRenderer } from "@/components/site-renderer";
 import { getPublicProjectByDomain } from "@/lib/project-repository";
+import { publicSiteSeo } from "@/lib/seo";
+import { StructuredBusinessData } from "@/components/structured-business-data";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +13,14 @@ async function domainProject(params: Promise<{ hostname: string }>) {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ hostname: string }> }): Promise<Metadata> {
-  const { hostname, project } = await domainProject(params);
+  const { project } = await domainProject(params);
   if (!project) return {};
-  const content = project.generatedContent;
-  const title = content?.seo.title ?? `${project.business.businessName} | ${project.business.category}`;
-  const description = content?.seo.description ?? project.business.description;
-  return { title: { absolute: title }, description, alternates: { canonical: `https://${hostname}` }, openGraph: { title, description, url: `https://${hostname}`, type: "website" } };
+  const seo = publicSiteSeo(project);
+  return { title: { absolute: seo.title }, description: seo.description, alternates: { canonical: seo.canonicalUrl }, robots: seo.robots, openGraph: { title: seo.title, description: seo.description, url: seo.canonicalUrl, type: "website", siteName: "LaunchSite", ...(seo.image ? { images: [{ url: seo.image }] } : {}) }, twitter: { card: seo.image ? "summary_large_image" : "summary", title: seo.title, description: seo.description, ...(seo.image ? { images: [seo.image] } : {}) } };
 }
 
 export default async function CustomDomainPage({ params }: { params: Promise<{ hostname: string }> }) {
   const { project } = await domainProject(params);
   if (!project) notFound();
-  return <main className="public-site"><SiteRenderer project={project} trackAnalytics /></main>;
+  return <main className="public-site"><StructuredBusinessData project={project} /><SiteRenderer project={project} trackAnalytics /></main>;
 }

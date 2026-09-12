@@ -6,6 +6,8 @@ export type BillingState = {
   stripeSubscriptionId: string | null;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
+  pendingPlan?: Plan | null;
+  pendingPlanEffectiveAt?: Date | null;
 };
 
 // past_due retains access while Stripe retries. unpaid/paused/incomplete do not.
@@ -25,7 +27,10 @@ export function entitlementsFromBilling(account: BillingState | null) {
   return {
     plan, subscriptionStatus: account?.subscriptionStatus ?? null, hasActiveSubscription,
     canPublish: hasActiveSubscription, maxPublishedSites: plans[plan].maxPublishedSites,
-    canUseCustomDomain: hasActiveSubscription && plan === "BUSINESS",
+    // Temporary testing/product-evaluation access: Starter domains can be
+    // moved back to Business-only by changing this entitlement rule later.
+    canUseCustomDomain: hasActiveSubscription && (plan === "STARTER" || plan === "BUSINESS"),
     currentPeriodEnd: account?.currentPeriodEnd ?? null, cancelAtPeriodEnd: account?.cancelAtPeriodEnd ?? false,
+    pendingPlan: account?.pendingPlan ?? null, pendingPlanEffectiveAt: account?.pendingPlanEffectiveAt ?? null,
   };
 }

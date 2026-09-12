@@ -28,7 +28,7 @@ beforeEach(() => { actor = { id: "user-a", role: "USER" }; project = { id: "proj
 
 test("Free and Starter users cannot connect domains", async () => {
   allowed = false;
-  await assert.rejects(() => connectProjectDomain("project-a", "example.com"), /Business plan/i);
+  await assert.rejects(() => connectProjectDomain("project-a", "example.com"), /active paid plan/i);
 });
 
 test("Business user can connect a verified domain", async () => {

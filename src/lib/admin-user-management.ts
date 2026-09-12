@@ -17,6 +17,9 @@ const resetBillingData = {
   checkoutPlan: null,
   checkoutPriceId: null,
   checkoutExpiresAt: null,
+  pendingPlan: null,
+  pendingPlanEffectiveAt: null,
+  stripeSubscriptionScheduleId: null,
 };
 
 function audit(adminId: string, targetId: string, action: string) {

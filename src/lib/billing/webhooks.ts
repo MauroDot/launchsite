@@ -22,7 +22,7 @@ async function userForCustomer(customerId: string) {
   return user.id;
 }
 
-export async function syncStripeSubscription(tx: Prisma.TransactionClient, userId: string, subscription: Stripe.Subscription) {
+export async function syncStripeSubscription(tx: Prisma.TransactionClient, userId: string, subscription: Stripe.Subscription, clearPending = false) {
   const customerId = idOf(subscription.customer)!;
   const account = await tx.billingAccount.findUnique({ where: { userId } });
   if (account?.stripeCustomerId && account.stripeCustomerId !== customerId) throw new Error("Billing customer association mismatch");
@@ -43,10 +43,11 @@ export async function syncStripeSubscription(tx: Prisma.TransactionClient, userI
     }
   }
   if (normalized.plan === "FREE") console.warn("Stripe subscription has no unique configured base price", { subscriptionId: subscription.id });
+  const pendingResolved = account?.pendingPlan && account.pendingPlan === normalized.plan;
   await tx.billingAccount.upsert({
     where: { userId },
     create: { userId, stripeCustomerId: customerId, ...normalized },
-    update: { stripeCustomerId: customerId, ...normalized },
+    update: { stripeCustomerId: customerId, ...normalized, ...(clearPending || pendingResolved ? { pendingPlan: null, pendingPlanEffectiveAt: null, stripeSubscriptionScheduleId: null } : {}) },
   });
 }
 
@@ -72,9 +73,23 @@ export async function processStripeEvent(event: Stripe.Event) {
       if (event.type === "customer.subscription.deleted") deleted = subscription;
       break;
     }
+    case "subscription_schedule.updated":
+    case "subscription_schedule.completed":
+    case "subscription_schedule.released":
+    case "subscription_schedule.canceled": {
+      const schedule = event.data.object as Stripe.SubscriptionSchedule;
+      subscriptionId = idOf(schedule.subscription);
+      if (!subscriptionId) return;
+      break;
+    }
     default: return;
   }
-  if (!customerId || !subscriptionId) throw new Error("Missing Stripe customer or subscription reference");
+  if (!subscriptionId) throw new Error("Missing Stripe subscription reference");
+  if (!customerId) {
+    const referenced = await getStripe().subscriptions.retrieve(subscriptionId);
+    customerId = idOf(referenced.customer) ?? undefined;
+  }
+  if (!customerId) throw new Error("Missing Stripe customer reference");
   const userId = await userForCustomer(customerId);
   if (!userId) { console.warn("Ignoring Stripe event for an unlinked customer", { eventId: event.id }); return; }
   await withBillingLock(userId, async (tx) => {
@@ -93,7 +108,7 @@ export async function processStripeEvent(event: Stripe.Event) {
       for await (const item of getStripe().subscriptionItems.list({ subscription: subscription.id, limit: 100 })) items.push(item);
       subscription = { ...subscription, items: { ...subscription.items, data: items, has_more: false } };
     }
-    await syncStripeSubscription(tx, userId, subscription);
+    await syncStripeSubscription(tx, userId, subscription, event.type === "subscription_schedule.released" || event.type === "subscription_schedule.canceled");
     // Record success in the same transaction as the billing state. Failures
     // roll back both, allowing Stripe retries to complete the operation.
     await tx.stripeWebhookEvent.create({ data: { eventId: event.id, eventType: event.type } });

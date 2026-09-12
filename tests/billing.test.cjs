@@ -6,7 +6,7 @@ const realStripe = new Stripe("sk_test_unit_test_only");
 const authPath = require.resolve("../src/auth.ts");
 const prismaPath = require.resolve("../src/lib/prisma.ts");
 const stripePath = require.resolve("../src/lib/billing/stripe.ts");
-let actor, accounts, projects, events, customers, subscriptions, sessions, calls, failure;
+let actor, accounts, projects, events, customers, subscriptions, sessions, schedules, calls, failure;
 let transactionTail = Promise.resolve();
 const copy = (value) => value == null ? value : structuredClone(value);
 const values = (main, staged) => [...new Map([...main, ...staged]).values()];
@@ -26,7 +26,7 @@ function client(stagedAccounts = null, stagedProjects = null, stagedEvents = nul
   return {
     $queryRaw: async (strings, key) => { assert.match(strings.join(""), /pg_advisory_xact_lock/); assert.match(key, /^billing:/); calls.push(["lock", key]); return []; },
     user: { findUnique: async ({ where }) => where.email ? actor : ["a", "b", "admin"].includes(where.id) ? { id: where.id, role: where.id === "admin" ? "ADMIN" : "USER" } : null },
-    billingAccount: {
+  billingAccount: {
       findUnique: async ({ where }) => copy(findAccount(where) ?? null),
       upsert: async ({ where, create, update }) => {
         const old = findAccount(where);
@@ -96,6 +96,15 @@ const stripe = {
   } },
   billingPortal: { sessions: { create: async (params) => { calls.push(["portal-create", params]); return { url: "https://billing.stripe.com/unit-test" }; } } },
   webhooks: realStripe.webhooks,
+  subscriptionItems: {
+    update: async (id, params) => { calls.push(["subscription-item-update", id, params]); if (failure === "upgrade-payment") { failure = null; throw { type: "StripeCardError", code: "card_declined", message: "The card was declined." }; } const row = [...subscriptions.values()].flatMap((sub) => sub.items.data).find((item) => item.id === id); assert.ok(row); row.price = { id: params.price }; return copy(row); },
+    list: () => listed(new Map()),
+  },
+  subscriptionSchedules: {
+    create: async ({ from_subscription }) => { calls.push(["schedule-create", from_subscription]); const row = { id: "sub_sched_a", subscription: from_subscription, phases: [{ start_date: 1000, end_date: null }] }; schedules.set(row.id, row); return copy(row); },
+    update: async (id, params) => { calls.push(["schedule-update", id, params]); const row = { ...schedules.get(id), ...params }; schedules.set(id, row); return copy(row); },
+    release: async (id) => { calls.push(["schedule-release", id]); schedules.delete(id); return {}; },
+  },
 };
 const stub = (id, exports) => { require.cache[id] = { id, filename: id, loaded: true, exports }; };
 stub(prismaPath, { prisma: db });
@@ -103,6 +112,7 @@ stub(authPath, { auth: async () => actor ? { user: { email: `${actor.id}@example
 stub(stripePath, { getStripe: () => stripe });
 stub(require.resolve("next/cache"), { revalidatePath: () => {} });
 const { createCheckout, createBillingPortal } = require("../src/lib/billing/checkout.ts");
+const { changeSubscriptionPlan, cancelScheduledPlanChange } = require("../src/lib/billing/plan-changes.ts");
 const { getUserEntitlements } = require("../src/lib/billing/entitlements.ts");
 const { processStripeEvent } = require("../src/lib/billing/webhooks.ts");
 const { normalizeSubscription } = require("../src/lib/billing/subscription.ts");
@@ -117,7 +127,7 @@ const { getAppUrl } = require("../src/lib/app-url.ts");
 beforeEach(() => {
   actor = { id: "a", role: "USER" };
   accounts = new Map(); projects = new Map([["one", site("one")], ["two", site("two")]]); events = new Map();
-  customers = new Map(); subscriptions = new Map(); sessions = new Map(); calls = []; failure = null;
+  customers = new Map(); subscriptions = new Map(); sessions = new Map(); schedules = new Map(); calls = []; failure = null;
   process.env.ADMIN_EMAILS = ""; process.env.STRIPE_STARTER_PRICE_ID = "price_starter"; process.env.STRIPE_BUSINESS_PRICE_ID = "price_business"; process.env.STRIPE_WEBHOOK_SECRET = "whsec_unit_test_only"; process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 });
 function paid(plan = "STARTER", status = "active") { accounts.set("a", billingRow("a", { plan, subscriptionStatus: status, stripeCustomerId: "cus_a", stripeSubscriptionId: "sub_a" })); }
@@ -206,6 +216,49 @@ test("Billing Portal uses only the authenticated user's stored customer", async 
   await createBillingPortal("cus_b", "b");
   assert.equal(calls.find(([kind]) => kind === "portal-create")[1].customer, "cus_a");
   actor = null; await assert.rejects(createBillingPortal(), /UNAUTHENTICATED/);
+});
+
+test("Starter to Business updates the existing subscription with the trusted Business price", async () => {
+  paid("STARTER"); customers.set("cus_a", { id: "cus_a" }); subscriptions.set("sub_a", subscription());
+  const result = await changeSubscriptionPlan("BUSINESS");
+  assert.equal(result.kind, "upgrade-pending");
+  assert.equal(calls.find(([kind]) => kind === "subscription-item-update")[2].price, "price_business");
+  assert.equal(accounts.get("a").plan, "STARTER", "webhook remains authoritative for local plan state");
+  assert.equal(calls.some(([kind]) => kind === "schedule-create"), false);
+});
+
+test("failed upgrade does not grant Business locally", async () => {
+  paid("STARTER"); customers.set("cus_a", { id: "cus_a" }); subscriptions.set("sub_a", subscription()); failure = "upgrade-payment";
+  await assert.rejects(() => changeSubscriptionPlan("BUSINESS"));
+  assert.equal(accounts.get("a").plan, "STARTER");
+});
+
+test("Business to Starter schedules a period-end downgrade and preserves Business locally", async () => {
+  paid("BUSINESS"); customers.set("cus_a", { id: "cus_a" }); subscriptions.set("sub_a", subscription("sub_a", { items: { data: [{ id: "si_a", quantity: 1, current_period_start: 1000000000, current_period_end: 2000000000, price: { id: "price_business" } }], has_more: false } }));
+  const result = await changeSubscriptionPlan("STARTER");
+  assert.equal(result.kind, "downgrade-scheduled");
+  assert.equal(accounts.get("a").plan, "BUSINESS");
+  assert.equal(accounts.get("a").pendingPlan, "STARTER");
+  assert.equal(calls.some(([kind]) => kind === "schedule-create"), true);
+  await cancelScheduledPlanChange();
+  assert.equal(accounts.get("a").pendingPlan, null);
+  assert.equal(calls.some(([kind]) => kind === "schedule-release"), true);
+});
+
+test("webhook effective Starter price resolves a pending downgrade", async () => {
+  paid("BUSINESS"); accounts.get("a").pendingPlan = "STARTER"; accounts.get("a").pendingPlanEffectiveAt = new Date(2000 * 1000); accounts.get("a").stripeSubscriptionScheduleId = "sub_sched_a";
+  customers.set("cus_a", { id: "cus_a" }); subscriptions.set("sub_a", subscription("sub_a"));
+  await processStripeEvent(event("evt_pending_rollover", "customer.subscription.updated"));
+  assert.equal(accounts.get("a").plan, "STARTER");
+  assert.equal(accounts.get("a").pendingPlan, null);
+  assert.equal(accounts.get("a").stripeSubscriptionScheduleId, null);
+});
+
+test("plan changes reject arbitrary prices and unauthenticated users", async () => {
+  paid("STARTER"); customers.set("cus_a", { id: "cus_a" }); subscriptions.set("sub_a", subscription());
+  await assert.rejects(() => changeSubscriptionPlan("price_business"), { code: "INVALID_PLAN" });
+  actor = null;
+  await assert.rejects(() => changeSubscriptionPlan("BUSINESS"), /UNAUTHENTICATED/);
 });
 test("missing/ambiguous price configuration fails gracefully", async () => {
   delete process.env.STRIPE_STARTER_PRICE_ID;

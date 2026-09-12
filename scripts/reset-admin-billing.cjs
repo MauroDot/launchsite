@@ -22,6 +22,9 @@ const resetData = {
   checkoutPlan: null,
   checkoutPriceId: null,
   checkoutExpiresAt: null,
+  pendingPlan: null,
+  pendingPlanEffectiveAt: null,
+  stripeSubscriptionScheduleId: null,
 };
 
 function resolveEmail() {

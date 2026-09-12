@@ -4,8 +4,9 @@ import { entitlementsFromBilling } from "./billing/policy";
 import { normalizeDomainHostname } from "./domains/validation";
 import { canRenderCustomDomain, isInternalHostname } from "./domains/routing";
 
-test("custom domains are available only to active Business subscriptions", () => {
-  for (const plan of ["FREE", "STARTER"] as const) assert.equal(entitlementsFromBilling({ plan, subscriptionStatus: "active", stripeSubscriptionId: "sub", currentPeriodEnd: null, cancelAtPeriodEnd: false }).canUseCustomDomain, false);
+test("custom domains are available to active paid subscriptions", () => {
+  assert.equal(entitlementsFromBilling({ plan: "FREE", subscriptionStatus: "active", stripeSubscriptionId: "sub", currentPeriodEnd: null, cancelAtPeriodEnd: false }).canUseCustomDomain, false);
+  assert.equal(entitlementsFromBilling({ plan: "STARTER", subscriptionStatus: "active", stripeSubscriptionId: "sub", currentPeriodEnd: null, cancelAtPeriodEnd: false }).canUseCustomDomain, true);
   assert.equal(entitlementsFromBilling({ plan: "BUSINESS", subscriptionStatus: "active", stripeSubscriptionId: "sub", currentPeriodEnd: null, cancelAtPeriodEnd: false }).canUseCustomDomain, true);
   assert.equal(entitlementsFromBilling({ plan: "BUSINESS", subscriptionStatus: "canceled", stripeSubscriptionId: "sub", currentPeriodEnd: null, cancelAtPeriodEnd: false }).canUseCustomDomain, false);
 });

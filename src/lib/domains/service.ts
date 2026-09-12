@@ -28,7 +28,7 @@ export async function connectProjectDomain(projectId: string, input: unknown) {
   const { user, project } = await ownedCustomerProject(projectId);
   if (!project.isPublished) throw new Error("Publish this site before connecting a custom domain.");
   const entitlement = await getUserEntitlements(user.id);
-  if (!entitlement.canUseCustomDomain) throw new Error("Custom domains are available on the Business plan.");
+  if (!entitlement.canUseCustomDomain) throw new Error("Custom domains require an active paid plan.");
   const hostname = normalizeDomainHostname(input);
   const existing = await prisma.domain.findFirst({ where: { OR: [{ hostname }, { projectId }] }, select: { id: true, projectId: true, hostname: true } });
   if (existing) {

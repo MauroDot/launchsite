@@ -81,8 +81,10 @@ export async function publishProjectAction(id: string, requestedSlug?: string): 
   try {
     const project = await publishProject(id, requestedSlug);
     revalidatePath("/");
-    revalidatePath(`/dashboard/projects/${id}`);
-    revalidatePath(`/site/${project.publicSlug}`);
+    revalidatePath("/admin/projects");
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/projects/${id}`, "layout");
+    revalidatePath("/site/[slug]", "page");
     return { ok: true, id, publicSlug: project.publicSlug };
   } catch (error) {
     return { ok: false, error: error instanceof ProjectInputValidationError ? error.message : "We couldn’t publish this website right now. Please try again." };
@@ -93,8 +95,10 @@ export async function unpublishProjectAction(id: string): Promise<ActionResult> 
   try {
     const project = await unpublishProject(id);
     revalidatePath("/");
-    revalidatePath(`/dashboard/projects/${id}`);
-    if (project.publicSlug) revalidatePath(`/site/${project.publicSlug}`);
+    revalidatePath("/admin/projects");
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/projects/${id}`, "layout");
+    if (project.publicSlug) revalidatePath("/site/[slug]", "page");
     return { ok: true, id, publicSlug: project.publicSlug };
   } catch {
     return { ok: false, error: "We couldn’t unpublish this website right now. Please try again." };

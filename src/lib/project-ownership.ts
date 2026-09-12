@@ -4,6 +4,6 @@ export type ProjectOwner = {
 };
 
 /** Keeps the tenant boundary decision independent of database and Auth.js details. */
-export function canAccessProject(user: ProjectOwner, projectUserId: string | null) {
-  return projectUserId === user.id;
+export function canAccessProject(user: ProjectOwner, projectUserId: string | null, isDemo = false) {
+  return projectUserId === user.id || (user.role === "ADMIN" && isDemo);
 }

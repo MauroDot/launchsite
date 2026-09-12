@@ -5,6 +5,7 @@ import { validateGeneratedContent } from "@/lib/generated-content";
 import { assertContentGroundedInProject } from "@/lib/content-grounding";
 import { requireAdmin, requireProjectAccess, requireUser } from "@/lib/access";
 import { normalizePublicSlug, slugCandidate, validatePublicSlug } from "@/lib/public-slug";
+import { toPublicSite } from "@/lib/public-site";
 import { defaultSiteSettings, defaultThemeSettings, siteSectionIds, type BrandTone, type PersistedWebsiteProject, type PrimaryCallToAction, type SiteSectionId, type SiteSettings, type StructuredWebsiteContent, type VisualStyle, type WebsiteProjectInput } from "@/lib/website-types";
 
 type ProjectRecord = {
@@ -12,8 +13,6 @@ type ProjectRecord = {
   serviceArea: string; phone: string; email: string; yearsInBusiness: number | null; brandTone: string; businessStory: string | null; targetAudience: string | null; differentiators: string | null; customerPriorities: string | null; factualNotes: string | null;
   primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null; siteSettings: unknown; isDemo: boolean; featured: boolean; demoTitle: string | null; demoDescription: string | null; demoSortOrder: number | null; isPublished: boolean; publishedAt: Date | null; lastPublishedAt: Date | null; publicSlug: string | null;
 };
-
-type PublicationRecord = { id: string; businessName: string; publicSlug: string | null; publishedAt: Date | null };
 
 function toProject(record: ProjectRecord): PersistedWebsiteProject {
   const savedSettings = record.siteSettings as Partial<SiteSettings> | null;
@@ -71,11 +70,11 @@ export async function getProject(id: string) {
 }
 
 async function availablePublicSlug(value: string, projectId: string) {
-  const base = validatePublicSlug(value) ?? validatePublicSlug(normalizePublicSlug(value));
+  const base = validatePublicSlug(value);
   if (!base) throw new ProjectInputValidationError("Use a public URL with 3–72 lowercase letters, numbers, and hyphens.");
   for (let attempt = 1; attempt < 1000; attempt += 1) {
     const candidate = slugCandidate(base, attempt);
-    const match = await prisma.websiteProject.findFirst({ where: { publicSlug: candidate, NOT: { id: projectId } }, select: { id: true } } as never);
+    const match = await prisma.websiteProject.findFirst({ where: { publicSlug: candidate, NOT: { id: projectId } }, select: { id: true } });
     if (!match) return candidate;
   }
   throw new ProjectInputValidationError("We couldn’t find an available public URL. Please try a more specific one.");
@@ -83,25 +82,37 @@ async function availablePublicSlug(value: string, projectId: string) {
 
 export async function publishProject(id: string, requestedSlug?: string) {
   await requireProjectAccess(id);
-  const project = await prisma.websiteProject.findUnique({ where: { id }, select: { id: true, businessName: true, publicSlug: true, publishedAt: true } } as never) as unknown as PublicationRecord | null;
+  const project = await prisma.websiteProject.findUnique({ where: { id }, select: { id: true, businessName: true, publicSlug: true, publishedAt: true } });
   if (!project) throw new ProjectInputValidationError("Project not found.");
-  const publicSlug = await availablePublicSlug(requestedSlug?.trim() || project.publicSlug || project.businessName, id);
-  const now = new Date();
-  const record = await prisma.websiteProject.update({ where: { id }, data: { isPublished: true, publicSlug, publishedAt: project.publishedAt ?? now, lastPublishedAt: now }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
-  return toProject(record as unknown as ProjectRecord);
+  const explicit = requestedSlug !== undefined;
+  const base = explicit ? validatePublicSlug(requestedSlug) : project.publicSlug || validatePublicSlug(normalizePublicSlug(project.businessName)) || "website";
+  if (!base) throw new ProjectInputValidationError("Use 3–72 lowercase letters, numbers, and single hyphens, without spaces.");
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const publicSlug = explicit ? base : await availablePublicSlug(base, id);
+    const now = new Date();
+    try {
+      const record = await prisma.websiteProject.update({ where: { id }, data: { isPublished: true, publicSlug, publishedAt: project.publishedAt ?? now, lastPublishedAt: now }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } });
+      return toProject(record);
+    } catch (error) {
+      if (!(error && typeof error === "object" && "code" in error && error.code === "P2002")) throw error;
+      if (explicit) throw new ProjectInputValidationError("That public URL is already reserved. Please choose another.");
+      // The unique index arbitrates simultaneous publishes. Retry automatic names.
+    }
+  }
+  throw new ProjectInputValidationError("That address is busy. Please try publishing again.");
 }
 
 export async function unpublishProject(id: string) {
   await requireProjectAccess(id);
-  const record = await prisma.websiteProject.update({ where: { id }, data: { isPublished: false }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
-  return toProject(record as unknown as ProjectRecord);
+  const record = await prisma.websiteProject.update({ where: { id }, data: { isPublished: false }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } });
+  return toProject(record);
 }
 
 export async function getPublicProject(publicSlug: string) {
   const slug = validatePublicSlug(publicSlug);
   if (!slug) return null;
-  const record = await prisma.websiteProject.findFirst({ where: { publicSlug: slug, isPublished: true }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
-  return record ? toProject(record as unknown as ProjectRecord) : null;
+  const record = await prisma.websiteProject.findFirst({ where: { publicSlug: slug, isPublished: true }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } });
+  return record ? toPublicSite(toProject(record)) : null;
 }
 
 export async function listProjects() {
@@ -135,6 +146,7 @@ export async function saveSiteContent(id: string, content: StructuredWebsiteCont
 
 export async function saveDemoSettings(id: string, settings: import("@/lib/website-types").DemoSettings) {
   await requireAdmin();
+  await requireProjectAccess(id);
   const sortOrder = settings.demoSortOrder.trim() === "" ? null : Number(settings.demoSortOrder);
   if (sortOrder !== null && (!Number.isInteger(sortOrder) || sortOrder < 0)) throw new ProjectInputValidationError("Display order must be a non-negative whole number.");
   await prisma.websiteProject.update({ where: { id }, data: { isDemo: settings.isDemo, featured: settings.isDemo && settings.featured, demoTitle: settings.demoTitle.trim() || null, demoDescription: settings.demoDescription.trim() || null, demoSortOrder: sortOrder } as never });
@@ -179,7 +191,7 @@ export async function createAdminProject(input: WebsiteProjectInput, isDemo: boo
 
 export async function listAdminProjects() {
   await requireAdmin();
-  return prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, businessName: true, businessType: true, isDemo: true, isPublished: true, publicSlug: true, userId: true, updatedAt: true, featuredBusiness: { select: { enabled: true } } } } as never) as unknown as Promise<Array<{ id: string; businessName: string; businessType: string; isDemo: boolean; isPublished: boolean; publicSlug: string | null; userId: string | null; updatedAt: Date; featuredBusiness: { enabled: boolean } | null }>>;
+  return prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, businessName: true, businessType: true, isDemo: true, isPublished: true, publicSlug: true, publishedAt: true, userId: true, updatedAt: true, featuredBusiness: { select: { enabled: true } } } });
 }
 
 export async function getFeaturedBusiness(projectId: string) {
@@ -208,8 +220,18 @@ export async function saveFeaturedBusiness(projectId: string, input: FeaturedBus
 
 export async function listPublicFeaturedBusinesses() {
   const now = new Date();
-  const records = await featuredBusinessDelegate().findMany({ where: { enabled: true, OR: [{ startsAt: null }, { startsAt: { lte: now } }], AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }], project: { OR: [{ isDemo: true }, { isPublished: true }] } }, orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }], include: { project: { include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } } });
-  return records.map((record) => ({ ...record, project: toProject(record.project) }));
+  const records = await prisma.featuredBusiness.findMany({
+    where: { enabled: true, OR: [{ startsAt: null }, { startsAt: { lte: now } }], AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }], project: { is: {} } },
+    orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
+    select: { displayTitle: true, promotionalDescription: true, imageUrl: true, project: { select: { isPublished: true, publicSlug: true, businessName: true, businessDescription: true } } },
+  });
+  return records.flatMap(({ displayTitle, promotionalDescription, imageUrl, project }) => {
+    const live = project.isPublished && project.publicSlug && validatePublicSlug(project.publicSlug);
+    // An unpublished placement uses only explicitly configured marketing copy.
+    const title = displayTitle || (live ? project.businessName : null);
+    if (!title) return [];
+    return [{ title, description: promotionalDescription || (live ? project.businessDescription : ""), imageUrl, href: live ? `/site/${project.publicSlug}` : null }];
+  });
 }
 
 export async function getAdminOverview() {

@@ -4,15 +4,29 @@
 
 Publishing uses a LaunchSite-hosted URL at `/site/<public-slug>`. Published sites read their current saved content and theme, so later saved edits become live immediately. Unpublishing removes the public route while retaining the private project. `publicSlug` is separate from the internal project slug so custom domains or LaunchSite subdomains can map to the same site later.
 
+The project and website editor offer **Publish site**, **View live site**, **Save public address**, and **Unpublish**. Save content before publishing: publishing itself does not save unsaved editor fields. The reserved address stays assigned after unpublishing. Changing it retires the old URL without a redirect.
+
+Suggested slugs use the business name, lowercase ASCII letters/numbers and single hyphens, with a 72-character limit. Automatic collisions receive `-2`, `-3`, etc.; simultaneous reservations are resolved by the database unique index with retries. Custom addresses must be 3-72 characters and return an error if already reserved. Short or non-ASCII-only business names default to `website`.
+
+Publishing is authorized server-side for the project owner, plus administrators managing official demos. Being an administrator does not grant publishing access to someone else's private project. Official `/examples` routes use their separate demo rules; unpublishing a demo's customer URL does not remove its example page.
+
+The public route is dynamic and resolves only an exact, published `publicSlug`. `toPublicSite` in `src/lib/public-site.ts` copies only website fields, strips internal identifiers and nested debug keys, and supplies the shared renderer used by private preview. Private service notes are not used as fallback website copy. The `(launchsite)` route group contains application navigation, so public customer pages do not render account/admin controls at all. This route group does not change existing URLs.
+
+Featured Businesses use enabled placements within their optional date window. Published projects can link to their live site. Unpublished placements show only explicitly configured marketing title/description/image and never receive a project link; placements without a marketing title are omitted. Configure an image on the placement rather than relying on private work samples.
+
+The existing migration `20260912120000_public_publishing` adds `isPublished`, `publishedAt`, `lastPublishedAt`, and unique nullable `publicSlug`. `publishedAt` records first publication; `lastPublishedAt` records the latest publish/address operation, not every content save. No snapshot or version history is stored. On deployment, run `npx.cmd prisma migrate deploy` before starting the application; never reset an existing database. Set `NEXT_PUBLIC_APP_URL` in local `.env` and the deployment environment to the application's origin for canonical/Open Graph URLs. No new secrets are required.
+
+See [Task 010 verification and acceptance checks](docs/task-010.md) for coverage and remaining manual checks.
+
 LaunchSite is a Next.js application that will help small-business owners turn a description of their business into a professional website.
 
 ## Current foundation
 
 This foundation includes a responsive marketing homepage, shared application chrome, and local website-creation wizard. The wizard turns entered business details into a deterministic, responsive website preview. Its typed input and generated content models are intentionally separated from the renderer so a future AI/content service can supply structured content without replacing the website UI.
 
-It uses PostgreSQL with Prisma to persist factual business profiles, structured services, separately generated website content, and Auth.js authentication records. Billing and publishing are not implemented yet.
+It uses PostgreSQL with Prisma to persist factual business profiles, structured services, separately generated website content, and Auth.js authentication records. Public publishing is implemented; billing is not included.
 
-Work samples and testimonials are stored as URL-and-text metadata only. LaunchSite does not store media binaries in PostgreSQL; direct file uploads are a future milestone.
+Work samples and testimonials are stored as URL-and-text metadata. Signed uploads send images and videos directly to Cloudinary; PostgreSQL stores their metadata, not media binaries.
 
 ## Local setup
 
@@ -26,15 +40,15 @@ Work samples and testimonials are stored as URL-and-text metadata only. LaunchSi
 3. Create a PostgreSQL database named `launchsite`, then copy the example environment file and set its connection string:
 
    ```powershell
-   Copy-Item .env.example .env
+   if (-not (Test-Path .env)) { Copy-Item .env.example .env }
    ```
 
-4. Install dependencies and generate the Prisma client, then create the database schema:
+4. Install dependencies and generate the Prisma client, then apply the checked-in forward migrations:
 
    ```powershell
    npm.cmd install
    npm.cmd run db:generate
-   npm.cmd run db:migrate -- --name init
+   npx.cmd prisma migrate deploy
    ```
 
 5. Start the development server:
@@ -43,13 +57,14 @@ Work samples and testimonials are stored as URL-and-text metadata only. LaunchSi
    npm.cmd run dev
    ```
 
-5. Open `http://localhost:3000`.
+6. Open `http://localhost:3000`.
 
 ## Verification commands
 
 ```powershell
 npm.cmd run lint
 npm.cmd run typecheck
+npm.cmd test
 npm.cmd run build
 ```
 
@@ -58,7 +73,8 @@ npm.cmd run build
 ```powershell
 npm.cmd run db:generate
 npm.cmd run db:validate
-npm.cmd run db:migrate -- --name init
+npx.cmd prisma migrate status
+npx.cmd prisma migrate deploy
 ```
 
 When updating an existing Task 004 database to the richer business profile, run:

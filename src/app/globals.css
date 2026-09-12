@@ -12,8 +12,6 @@ html { scroll-behavior: smooth; }
 body { background: #fff; color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
 
 .page-shell { overflow: hidden; }
-.page-shell:has(.public-site) > header,
-.page-shell:has(.public-site) > footer { display: none; }
 .grid-glow {
   background-image: linear-gradient(#e9eef6 1px, transparent 1px), linear-gradient(90deg, #e9eef6 1px, transparent 1px);
   background-size: 44px 44px;

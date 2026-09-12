@@ -24,7 +24,7 @@ export function generateSiteContent(business: BusinessProfile): GeneratedSiteCon
     heroDescription: business.description,
     services: serviceNames.map((name) => {
       const service = business.services.find((item) => item.name.trim() === name);
-      return { name, description: service?.description.trim() || service?.notes.trim() || `${name} for customers in ${business.serviceArea}.` };
+      return { name, description: service?.description.trim() || `${name} for customers in ${business.serviceArea}.` };
     }),
     about: `${yearsPhrase(business.yearsInBusiness)}${business.businessName} serves ${business.serviceArea} with ${serviceSummary}. ${aboutDetails}`.trim(),
     benefits: [differentiator || "Clear communication from first call to final detail", business.customerPriorities.trim() || "Work shaped around your needs", `Serving ${business.serviceArea}`],

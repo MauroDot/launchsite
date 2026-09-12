@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isBootstrapAdmin } from "@/lib/admin-bootstrap";
+import { canAccessProject } from "@/lib/project-ownership";
 
 type AuthUser = { id: string; role: "USER" | "ADMIN" };
 
@@ -32,8 +33,6 @@ export async function requireProjectAccess(id: string) {
     where: { id },
     select: { userId: true, isDemo: true },
   });
-  const isOwner = project?.userId === user.id;
-  const isDemoAdmin = user.role === "ADMIN" && project?.isDemo;
-  if (!project || (!isOwner && !isDemoAdmin)) throw new Error("NOT_FOUND");
+  if (!project || !canAccessProject(user, project.userId, project.isDemo)) throw new Error("NOT_FOUND");
   return user;
 }

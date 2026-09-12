@@ -10,10 +10,9 @@ export function normalizePublicSlug(value: string) {
     .replace(/-+$/g, "");
 }
 
-export function validatePublicSlug(value: string) {
-  const normalized = normalizePublicSlug(value);
-  if (normalized.length < 3 || normalized.length > MAX_PUBLIC_SLUG_LENGTH) return null;
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized) ? normalized : null;
+export function validatePublicSlug(value: unknown) {
+  if (typeof value !== "string" || value.length < 3 || value.length > MAX_PUBLIC_SLUG_LENGTH) return null;
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? value : null;
 }
 
 export function slugCandidate(base: string, attempt: number) {

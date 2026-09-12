@@ -8,6 +8,8 @@ import { plans } from "@/lib/billing/plans";
 import { BillingButton } from "@/components/billing-button";
 import { PlanChangeButton } from "@/components/plan-change-button";
 import { CancelPlanChangeButton } from "@/components/cancel-plan-change-button";
+import { FeaturedAddonPanel } from "@/components/featured-addon-panel";
+import { listProjects } from "@/lib/project-repository";
 
 export const metadata = { title: "Your billing" };
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ const statusLabels: Record<string, string> = { active: "Active", trialing: "Tria
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   if (!(await auth())?.user) redirect("/login?callbackUrl=/account/billing");
   const user = await requireUser();
-  const [entitlements, account] = await Promise.all([getUserEntitlements(user.id), prisma.billingAccount.findUnique({ where: { userId: user.id }, select: { stripeCustomerId: true } })]);
+  const [entitlements, account, projects, featuredSelection] = await Promise.all([getUserEntitlements(user.id), prisma.billingAccount.findUnique({ where: { userId: user.id }, select: { stripeCustomerId: true } }), listProjects().catch(() => []), prisma.featuredBusiness ? prisma.featuredBusiness.findFirst({ where: { enabled: true, project: { userId: user.id } }, select: { projectId: true } }) : Promise.resolve(null)]);
   const success = (await searchParams).checkout === "success";
   const date = entitlements.currentPeriodEnd?.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   const pendingDate = entitlements.pendingPlanEffectiveAt?.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -33,6 +35,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       {["unpaid", "incomplete", "paused"].includes(entitlements.subscriptionStatus ?? "") && <p className="mt-5 rounded-xl bg-amber-50 p-4 text-amber-950">Your subscription needs attention before you can publish. Open Manage billing to review it.</p>}
       <div className="mt-7 flex flex-wrap items-start gap-4">{account?.stripeCustomerId && <BillingButton>Manage billing</BillingButton>}{entitlements.plan === "STARTER" && !entitlements.pendingPlan && <PlanChangeButton target="BUSINESS">Upgrade to Business</PlanChangeButton>}{entitlements.plan === "BUSINESS" && !entitlements.pendingPlan && <PlanChangeButton target="STARTER">Downgrade to Starter</PlanChangeButton>}{entitlements.pendingPlan && <CancelPlanChangeButton />}<Link className="rounded-full border px-5 py-3 text-sm font-semibold" href="/pricing">View plans</Link><Link className="rounded-full border px-5 py-3 text-sm font-semibold" href="/dashboard">Your websites</Link></div>
     </div>
+    <FeaturedAddonPanel entitlement={entitlements} projects={projects.filter((project) => project.isPublished && !project.isDemo)} selectedProjectId={featuredSelection?.projectId ?? null} />
     <p className="mt-6 text-sm text-slate-500">Payments and payment-method details are handled securely by Stripe.</p>
   </section>;
 }

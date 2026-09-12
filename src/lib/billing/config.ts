@@ -16,3 +16,9 @@ export function getWebhookSecret() {
   if (!secret) throw new BillingError("BILLING_NOT_CONFIGURED", "Stripe webhook configuration is missing.");
   return secret;
 }
+
+export function getFeaturedBusinessPriceId() {
+  const price = process.env.STRIPE_FEATURED_BUSINESS_PRICE_ID?.trim();
+  if (!price?.startsWith("price_")) throw new BillingError("BILLING_NOT_CONFIGURED", "Featured Business billing is not configured yet.");
+  return price;
+}

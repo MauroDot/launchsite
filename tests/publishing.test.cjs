@@ -43,7 +43,7 @@ const prisma = {
     assert.ok(where.OR[1].startsAt.lte instanceof Date);
     assert.ok(where.AND[0].OR[1].endsAt.gte instanceof Date);
     assert.deepEqual(where.project, { is: {} });
-    assert.equal(select.project.select.isDemo, undefined);
+    assert.equal(select.project.select.isDemo, true);
     assert.equal(select.project.select.userId, undefined);
     return featuredRows;
   } },

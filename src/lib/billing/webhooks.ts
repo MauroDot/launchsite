@@ -26,7 +26,8 @@ export async function syncStripeSubscription(tx: Prisma.TransactionClient, userI
   const customerId = idOf(subscription.customer)!;
   const account = await tx.billingAccount.findUnique({ where: { userId } });
   if (account?.stripeCustomerId && account.stripeCustomerId !== customerId) throw new Error("Billing customer association mismatch");
-  const normalized = normalizeSubscription(subscription, getPriceIds());
+  const featuredPriceId = process.env.STRIPE_FEATURED_BUSINESS_PRICE_ID?.trim();
+  const normalized = normalizeSubscription(subscription, getPriceIds(), featuredPriceId?.startsWith("price_") ? featuredPriceId : undefined);
   if (normalized.plan === "FREE" && account?.stripeSubscriptionId !== subscription.id && subscription.metadata.launchsiteBaseSubscription !== "true" && !isPaidPlan(subscription.metadata.launchsitePlan)) {
     console.warn("Ignoring unrecognized non-base subscription", { subscriptionId: subscription.id });
     return;
@@ -47,7 +48,7 @@ export async function syncStripeSubscription(tx: Prisma.TransactionClient, userI
   await tx.billingAccount.upsert({
     where: { userId },
     create: { userId, stripeCustomerId: customerId, ...normalized },
-    update: { stripeCustomerId: customerId, ...normalized, ...(clearPending || pendingResolved ? { pendingPlan: null, pendingPlanEffectiveAt: null, stripeSubscriptionScheduleId: null } : {}) },
+    update: { stripeCustomerId: customerId, ...normalized, ...(normalized.featuredAddonActive ? {} : { featuredAddonScheduleId: null, featuredAddonCancelAtPeriodEnd: false }), ...(clearPending || pendingResolved ? { pendingPlan: null, pendingPlanEffectiveAt: null, stripeSubscriptionScheduleId: null } : {}) },
   });
 }
 

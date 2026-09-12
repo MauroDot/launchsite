@@ -92,6 +92,11 @@ model BillingAccount {
   pendingPlan                 BillingPlan?
   pendingPlanEffectiveAt     DateTime?
   stripeSubscriptionScheduleId String?    @unique
+  featuredAddonActive        Boolean     @default(false)
+  featuredAddonPriceId       String?
+  featuredAddonCurrentPeriodEnd DateTime?
+  featuredAddonCancelAtPeriodEnd Boolean @default(false)
+  featuredAddonScheduleId     String?    @unique
   createdAt                   DateTime    @default(now())
   updatedAt                   DateTime    @updatedAt
 }

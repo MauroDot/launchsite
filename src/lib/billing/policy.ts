@@ -8,6 +8,9 @@ export type BillingState = {
   cancelAtPeriodEnd: boolean;
   pendingPlan?: Plan | null;
   pendingPlanEffectiveAt?: Date | null;
+  featuredAddonActive?: boolean;
+  featuredAddonCancelAtPeriodEnd?: boolean;
+  featuredAddonCurrentPeriodEnd?: Date | null;
 };
 
 // past_due retains access while Stripe retries. unpaid/paused/incomplete do not.
@@ -31,5 +34,10 @@ export function entitlementsFromBilling(account: BillingState | null) {
     canUseCustomDomain: hasActiveSubscription && (plan === "STARTER" || plan === "BUSINESS"),
     currentPeriodEnd: account?.currentPeriodEnd ?? null, cancelAtPeriodEnd: account?.cancelAtPeriodEnd ?? false,
     pendingPlan: account?.pendingPlan ?? null, pendingPlanEffectiveAt: account?.pendingPlanEffectiveAt ?? null,
+    hasFeaturedBusinessAddon: hasActiveSubscription && account?.featuredAddonActive === true,
+    canPurchaseFeaturedBusiness: hasActiveSubscription && account?.featuredAddonActive !== true,
+    canSelectFeaturedProject: hasActiveSubscription && account?.featuredAddonActive === true,
+    featuredAddonCancelAtPeriodEnd: account?.featuredAddonCancelAtPeriodEnd ?? false,
+    featuredAddonCurrentPeriodEnd: account?.featuredAddonCurrentPeriodEnd ?? null,
   };
 }

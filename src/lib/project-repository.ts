@@ -203,7 +203,7 @@ export async function createAdminProject(input: WebsiteProjectInput, isDemo: boo
 
 export async function listAdminProjects() {
   await requireAdmin();
-  return prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, businessName: true, businessType: true, isDemo: true, isPublished: true, publicSlug: true, publishedAt: true, userId: true, updatedAt: true, featuredBusiness: { select: { enabled: true } } } });
+  return prisma.websiteProject.findMany({ orderBy: { updatedAt: "desc" }, select: { id: true, businessName: true, businessType: true, isDemo: true, isPublished: true, publicSlug: true, publishedAt: true, userId: true, updatedAt: true, user: { select: { email: true, billingAccount: { select: { plan: true, subscriptionStatus: true, featuredAddonActive: true, featuredAddonCancelAtPeriodEnd: true, featuredAddonCurrentPeriodEnd: true } } } }, featuredBusiness: { select: { enabled: true } } } });
 }
 
 export async function getFeaturedBusiness(projectId: string) {
@@ -235,10 +235,11 @@ export async function listPublicFeaturedBusinesses() {
   const records = await prisma.featuredBusiness.findMany({
     where: { enabled: true, OR: [{ startsAt: null }, { startsAt: { lte: now } }], AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }], project: { is: {} } },
     orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
-    select: { displayTitle: true, promotionalDescription: true, imageUrl: true, project: { select: { isPublished: true, publicSlug: true, businessName: true, businessDescription: true } } },
+    select: { displayTitle: true, promotionalDescription: true, imageUrl: true, project: { select: { isPublished: true, isDemo: true, publicSlug: true, businessName: true, businessDescription: true, user: { select: { billingAccount: { select: { featuredAddonActive: true } } } } } } },
   });
   return records.flatMap(({ displayTitle, promotionalDescription, imageUrl, project }) => {
-    const live = project.isPublished && project.publicSlug && validatePublicSlug(project.publicSlug);
+    const paid = !project.user || project.user.billingAccount?.featuredAddonActive === true;
+    const live = paid && project.isPublished && !project.isDemo && project.publicSlug && validatePublicSlug(project.publicSlug);
     // An unpublished placement uses only explicitly configured marketing copy.
     const title = displayTitle || (live ? project.businessName : null);
     if (!title) return [];

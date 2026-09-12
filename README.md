@@ -18,6 +18,8 @@ The public route is dynamic and resolves only an exact, published `publicSlug`. 
 
 Featured Businesses use enabled placements within their optional date window. Published projects can link to their live site. Unpublished placements show only explicitly configured marketing title/description/image and never receive a project link; placements without a marketing title are omitted. Configure an image on the placement rather than relying on private work samples.
 
+Featured Business is a paid recurring add-on on an existing Starter or Business Stripe subscription. Configure `STRIPE_FEATURED_BUSINESS_PRICE_ID` with the recurring monthly Stripe Price ID. The add-on is added as a subscription item, never a second subscription. Customers select one of their own published sites from Account → Billing; cancellation is scheduled for the current period end when no other Stripe schedule is pending. Public placement requires synchronized local add-on entitlement and a currently published selected project, so public rendering never queries Stripe.
+
 The existing migration `20260912120000_public_publishing` adds `isPublished`, `publishedAt`, `lastPublishedAt`, and unique nullable `publicSlug`. `publishedAt` records first publication; `lastPublishedAt` records the latest publish/address operation, not every content save. No snapshot or version history is stored. On deployment, run `npx.cmd prisma migrate deploy` before starting the application; never reset an existing database. Set `NEXT_PUBLIC_APP_URL` in local `.env` and the deployment environment to the application's origin for canonical/Open Graph URLs. No new secrets are required.
 
 See [Task 010 verification and acceptance checks](docs/task-010.md) for coverage and remaining manual checks.

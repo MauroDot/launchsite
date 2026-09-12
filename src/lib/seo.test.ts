@@ -38,6 +38,11 @@ describe("public SEO", () => {
     assert.equal(result.image, "https://cdn.example.com/roof.jpg");
   });
 
+  it("gives a configured social image priority over work samples", () => {
+    const result = publicSiteSeo(site({ socialImageUrl: "https://res.cloudinary.com/demo/image/upload/social.jpg", workSamples: [{ id: "1", mediaType: "IMAGE", mediaUrl: "https://cdn.example.com/work.jpg", title: "", description: "" }] }));
+    assert.equal(result.image, "https://res.cloudinary.com/demo/image/upload/social.jpg");
+  });
+
   it("produces valid business structured data without raw HTML", () => {
     const data = structuredBusinessData(site(), "https://launchsite-two.vercel.app/site/summit-ridge-roofing", null);
     assert.equal(data["@type"], "LocalBusiness");

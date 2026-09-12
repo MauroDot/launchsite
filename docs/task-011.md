@@ -80,7 +80,7 @@ Use Test mode first. Do not substitute the placeholders below with guessed value
 6. Create a webhook endpoint at `https://YOUR_DEPLOYED_HOST/api/stripe/webhook`. Copy the endpoint signing secret beginning `whsec_` into `STRIPE_WEBHOOK_SECRET`.
 7. Subscribe the endpoint to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`. Invoice events can be added later; subscription state is refreshed from Stripe on the subscription events.
 8. Copy the account’s test secret key beginning `sk_test_` into `STRIPE_SECRET_KEY`. Keep it only in local/Vercel environment settings.
-9. Set `NEXT_PUBLIC_APP_URL` to the exact deployed origin, with no path, query string, or trailing slash.
+9. Set `NEXT_PUBLIC_APP_URL` to `https://launchsite-two.vercel.app`, with no path, query string, or trailing slash. Production Stripe return URLs intentionally ignore `VERCEL_URL`, which can identify a preview or branch deployment.
 10. Deploy, then run `npx.cmd prisma migrate deploy` as part of the deployment process. The checked database already has the migration applied.
 
 The official Stripe documentation describes Dashboard webhook registration and signing secrets, local forwarding, raw-body signature verification, Checkout subscriptions, portal sessions, and test cards: [webhooks](https://docs.stripe.com/webhooks?lang=node), [Checkout subscriptions](https://docs.stripe.com/billing/subscriptions/build-subscriptions?locale=en-GB&ui=embedded-form), [customer portal](https://docs.stripe.com/customer-management), and [test cards](https://docs.stripe.com/testing?testing-method=card-numbers).
@@ -158,3 +158,7 @@ There are 42 passing automated tests. They cover Free fallback, all paid statuse
 - Business’s initial limit is three published sites, chosen as the practical MVP default; it is centralized in `plans.ts` and can be changed without touching Stripe reconciliation.
 - Stripe CLI forwarding and live test-card Checkout require the owner’s Stripe account and were not performed here.
 - No deployment was made and no credentials were added to `.env`.
+
+## Canonical redirect regression
+
+`src/lib/app-url.ts` is the single origin helper for metadata, Checkout, and Billing Portal. The previous implementation used `https://${VERCEL_URL}` whenever `NEXT_PUBLIC_APP_URL` was missing. That allowed a production Stripe return to land on a transient deployment host, where Google OAuth rejected the callback with `redirect_uri_mismatch`. Production now uses the configured `NEXT_PUBLIC_APP_URL`, or the canonical `https://launchsite-two.vercel.app` fallback, and never derives payment return URLs from `VERCEL_URL`. Local development continues to use `http://localhost:3000`. Automated coverage asserts exact Checkout success/cancel and Portal return URLs for an ADMIN actor as well as the missing-variable production fallback.

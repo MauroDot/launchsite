@@ -112,6 +112,7 @@ const { publishProject, unpublishProject, getPublicProject } = require("../src/l
 const { publishProjectAction } = require("../src/app/actions/projects.ts");
 const { startCheckoutAction } = require("../src/app/actions/billing.ts");
 const { plans } = require("../src/lib/billing/plans.ts");
+const { getAppUrl } = require("../src/lib/app-url.ts");
 
 beforeEach(() => {
   actor = { id: "a", role: "USER" };
@@ -276,4 +277,33 @@ test("billing UI shows local status and never grants access from the success URL
   assert.match(html, /latest payment is overdue/);
   html = renderToStaticMarkup(React.createElement(React.Fragment, null, await PricingPage({ searchParams: Promise.resolve({}) })));
   assert.match(html, /Manage billing/); assert.doesNotMatch(html, /Choose Starter|Choose Business/);
+});
+
+test("admin Stripe returns always use the canonical production origin", async () => {
+  actor = { id: "admin", role: "ADMIN" };
+  process.env.NODE_ENV = "production";
+  process.env.NEXT_PUBLIC_APP_URL = "https://launchsite-two.vercel.app/";
+  process.env.VERCEL_URL = "launchsite-m4cu4kfpw-mauro-dot.vercel.app";
+  accounts.clear(); customers.clear(); sessions.clear(); calls.length = 0;
+
+  await createCheckout("STARTER");
+  const checkout = calls.find(([kind]) => kind === "checkout-create")[1];
+  assert.equal(getAppUrl(), "https://launchsite-two.vercel.app");
+  assert.equal(checkout.success_url, "https://launchsite-two.vercel.app/account/billing?checkout=success");
+  assert.equal(checkout.cancel_url, "https://launchsite-two.vercel.app/pricing?checkout=canceled");
+
+  accounts.set("admin", billingRow("admin", { stripeCustomerId: "cus_admin" }));
+  customers.set("cus_admin", { id: "cus_admin", metadata: { launchsiteUserId: "admin" } });
+  calls.length = 0;
+  await createBillingPortal();
+  const portal = calls.find(([kind]) => kind === "portal-create")[1];
+  assert.equal(portal.return_url, "https://launchsite-two.vercel.app/account/billing");
+});
+
+test("production ignores a deployment host when the canonical URL variable is missing", () => {
+  process.env.NODE_ENV = "production";
+  delete process.env.NEXT_PUBLIC_APP_URL;
+  process.env.VERCEL_URL = "launchsite-preview-123.vercel.app";
+  assert.equal(getAppUrl(), "https://launchsite-two.vercel.app");
+  process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 });

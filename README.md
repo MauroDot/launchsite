@@ -105,7 +105,7 @@ CLOUDINARY_API_SECRET="your_api_secret"
 
 Only the cloud name and API key are returned to the browser for a signed upload. `CLOUDINARY_API_SECRET` is used only by the server signature route and must never use a `NEXT_PUBLIC_` prefix.
 
-`NEXT_PUBLIC_APP_URL` is the public URL of the application. It defaults to `http://localhost:3000` in `.env.example`; set it to the production URL during deployment.
+`NEXT_PUBLIC_APP_URL` is the canonical public URL of the application. For production it must be `https://launchsite-two.vercel.app`; Stripe Checkout and Billing Portal return URLs never fall back to a preview or branch `VERCEL_URL`. Local development defaults to `http://localhost:3000`.
 
 ## Authentication
 

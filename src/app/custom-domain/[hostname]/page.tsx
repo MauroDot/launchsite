@@ -22,5 +22,5 @@ export async function generateMetadata({ params }: { params: Promise<{ hostname:
 export default async function CustomDomainPage({ params }: { params: Promise<{ hostname: string }> }) {
   const { project } = await domainProject(params);
   if (!project) notFound();
-  return <main className="public-site"><SiteRenderer project={project} /></main>;
+  return <main className="public-site"><SiteRenderer project={project} trackAnalytics /></main>;
 }

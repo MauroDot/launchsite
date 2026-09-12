@@ -1,0 +1,3 @@
+"use client";
+import { useEffect } from "react";
+export function PublicAnalyticsTracker({ slug }: { slug: string }) { useEffect(() => { if (!slug) return; try { const storageKey = `launchsite:visitor-key:${slug}`; let visitorKey = window.localStorage.getItem(storageKey); if (!visitorKey) { visitorKey = crypto.randomUUID().replace(/-/g, ""); window.localStorage.setItem(storageKey, visitorKey); } const body = JSON.stringify({ slug, path: window.location.pathname, referrer: document.referrer, visitorKey }); void fetch("/api/analytics", { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true }).catch(() => undefined); } catch { /* analytics is intentionally best-effort */ } }, [slug]); return null; }

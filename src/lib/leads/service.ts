@@ -6,6 +6,7 @@ import { validatePublicSlug } from "@/lib/public-slug";
 import { notifyLead } from "./email";
 import { validateLeadInput } from "./validation";
 import { selectLeadNotificationRecipient } from "./recipient";
+import { recordLeadAnalytics } from "@/lib/analytics/service";
 
 function hostnameOf(host: string | null) { return host?.split(":", 1)[0]?.toLowerCase().replace(/\.$/, "") || null; }
 
@@ -28,6 +29,7 @@ export async function createPublicLead(payload: unknown, host: string | null) {
   const project = await resolveProject(input.slug, host);
   if (!project) throw new Error("This website is not accepting messages.");
   const lead = await prisma.lead.create({ data: { projectId: project.id, name: input.name, email: input.email, phone: input.phone, message: input.message, source: "CONTACT_FORM" }, select: { id: true, projectId: true, createdAt: true } });
+  await recordLeadAnalytics(lead.projectId);
   try { await notifyLead({ leadId: lead.id, projectId: lead.projectId, recipient: selectLeadNotificationRecipient(project), businessName: project.businessName, name: input.name, email: input.email, phone: input.phone, message: input.message }); }
   catch (error) { console.error("Lead notification final failure", { leadId: lead.id, projectId: lead.projectId, timestamp: new Date().toISOString(), errorType: error instanceof Error ? error.name : "Unknown" }); }
   return lead;

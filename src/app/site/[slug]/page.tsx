@@ -19,5 +19,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PublicSitePage({ params }: Props) {
   const project = await getPublicProject((await params).slug);
   if (!project) notFound();
-  return <main className="public-site"><SiteRenderer project={project} /></main>;
+  return <main className="public-site"><SiteRenderer project={project} trackAnalytics /></main>;
 }

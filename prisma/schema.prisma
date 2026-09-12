@@ -46,6 +46,16 @@ enum LeadSource {
   CONTACT_FORM
 }
 
+enum AnalyticsEventType {
+  PAGE_VIEW
+  LEAD_SUBMITTED
+}
+
+enum AnalyticsHostType {
+  LAUNCHSITE_SLUG
+  CUSTOM_DOMAIN
+}
+
 model User {
   id            String           @id @default(cuid())
   name          String?
@@ -168,6 +178,7 @@ model WebsiteProject {
   featuredBusiness      FeaturedBusiness?
   domain                Domain?
   leads                 Lead[]
+  analyticsEvents       AnalyticsEvent[]
 }
 
 model Domain {
@@ -198,6 +209,23 @@ model Lead {
   @@index([projectId])
   @@index([status])
   @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id          String             @id @default(cuid())
+  projectId   String
+  type        AnalyticsEventType
+  path        String
+  hostType    AnalyticsHostType
+  source      String?
+  referrer    String?
+  visitorKey  String?
+  createdAt   DateTime           @default(now())
+  project     WebsiteProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([projectId, type, createdAt])
+  @@index([projectId, visitorKey, createdAt])
 }
 
 model FeaturedBusiness {

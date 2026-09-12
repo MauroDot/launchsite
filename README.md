@@ -4,6 +4,10 @@
 
 Publishing uses a LaunchSite-hosted URL at `/site/<public-slug>`. Published sites read their current saved content and theme, so later saved edits become live immediately. Unpublishing removes the public route while retaining the private project. `publicSlug` is separate from the internal project slug so custom domains or LaunchSite subdomains can map to the same site later.
 
+## Billing
+
+Task 011 adds Free, Starter ($19/month), and Business ($39/month) plans through Stripe Checkout and webhook-synchronized local billing records. Free users can build, edit, generate content, and preview; paid plans enable new publishing. Starter allows one published site and Business allows three. Existing published sites remain public after billing changes. Configure the four server-only Stripe variables in `.env` using [the Task 011 setup guide](docs/task-011.md); do not put real values in source control. Local webhook testing uses `stripe listen --forward-to localhost:3000/api/stripe/webhook`.
+
 The project and website editor offer **Publish site**, **View live site**, **Save public address**, and **Unpublish**. Save content before publishing: publishing itself does not save unsaved editor fields. The reserved address stays assigned after unpublishing. Changing it retires the old URL without a redirect.
 
 Suggested slugs use the business name, lowercase ASCII letters/numbers and single hyphens, with a 72-character limit. Automatic collisions receive `-2`, `-3`, etc.; simultaneous reservations are resolved by the database unique index with retries. Custom addresses must be 3-72 characters and return an error if already reserved. Short or non-ASCII-only business names default to `website`.

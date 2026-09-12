@@ -65,6 +65,33 @@ async function main() {
     assert.equal(response.status, route === "/admin" ? 404 : 307, `${route} requires authentication`);
     console.log(`PASS authentication: ${route}`);
   }
+  const pricingResponse = await fetch(`${base}/pricing`);
+  assert.equal(pricingResponse.status, 200);
+  const pricingHtml = await pricingResponse.text();
+  assert.match(pricingHtml, /Starter/);
+  assert.match(pricingHtml, /Business/);
+  assert.doesNotMatch(pricingHtml, /STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|stripeCustomerId/);
+  for (const width of [390, 768, 1440]) {
+    await command("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: width === 390 });
+    await command("Page.navigate", { url: `${base}/pricing` });
+    await delay(1000);
+    const { result } = await command("Runtime.evaluate", { expression: `JSON.stringify({overflow:document.documentElement.scrollWidth>innerWidth,cards:document.querySelectorAll('article').length,signin:[...document.querySelectorAll('article a')].filter(a=>a.getAttribute('href')==='/login?callbackUrl=/pricing').length})`, returnByValue: true });
+    const metrics = JSON.parse(result.value);
+    assert.equal(metrics.overflow, false);
+    assert.equal(metrics.cards, 3);
+    assert.equal(metrics.signin, 2);
+    const screenshot = await command("Page.captureScreenshot", { format: "png" });
+    fs.writeFileSync(path.join(output, `pricing-${width}.png`), Buffer.from(screenshot.data, "base64"));
+    console.log(`PASS pricing and signed-out plan flow: ${width}px`);
+  }
+  const billingResponse = await fetch(`${base}/account/billing?checkout=success`, { redirect: "manual" });
+  assert.equal(billingResponse.status, 307);
+  assert.equal(billingResponse.headers.get("location"), "/login?callbackUrl=/account/billing");
+  const loginHtml = await (await fetch(`${base}/login?callbackUrl=/pricing`)).text();
+  assert.match(loginHtml, /name="callbackUrl"[^>]*value="\/pricing"/);
+  assert.equal((await fetch(`${base}/api/stripe/webhook`, { method: "POST", body: "{}" })).status, 400);
+  assert.equal((await fetch(`${base}/api/stripe/webhook`)).status, 405);
+  console.log("PASS billing authentication, sign-in return path, and unsigned webhook rejection");
   // Render synthetic content with the production CSS in the browser. This
   // covers layout/theme extremes without modifying the published customer's site.
   require("../scripts/register-typescript.cjs");

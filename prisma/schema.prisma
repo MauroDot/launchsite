@@ -21,6 +21,12 @@ enum UserRole {
   ADMIN
 }
 
+enum BillingPlan {
+  FREE
+  STARTER
+  BUSINESS
+}
+
 model User {
   id            String           @id @default(cuid())
   name          String?
@@ -31,8 +37,37 @@ model User {
   accounts      Account[]
   sessions      Session[]
   projects      WebsiteProject[]
+  billingAccount BillingAccount?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+}
+
+model BillingAccount {
+  id                          String      @id @default(cuid())
+  userId                      String      @unique
+  user                        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  stripeCustomerId            String?     @unique
+  stripeSubscriptionId        String?     @unique
+  stripePriceId               String?
+  plan                        BillingPlan @default(FREE)
+  subscriptionStatus          String?
+  subscriptionCreatedAt       DateTime?
+  currentPeriodStart          DateTime?
+  currentPeriodEnd            DateTime?
+  cancelAtPeriodEnd           Boolean     @default(false)
+  checkoutSessionId           String?     @unique
+  checkoutAttemptId           String?
+  checkoutPlan                BillingPlan?
+  checkoutPriceId             String?
+  checkoutExpiresAt           DateTime?
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime    @updatedAt
+}
+
+model StripeWebhookEvent {
+  eventId     String   @id
+  eventType   String
+  processedAt DateTime @default(now())
 }
 
 model Account {

@@ -20,7 +20,9 @@
     "next": "^16.1.0",
     "next-auth": "^5.0.0-beta.32",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1",
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",

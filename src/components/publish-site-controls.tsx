@@ -13,11 +13,13 @@ export function PublishSiteControls({ projectId, businessName, isPublished, publ
   const [slug, setSlug] = useState(publicSlug ?? suggestion);
   const [edited, setEdited] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const publish = () => startTransition(async () => {
     try {
       const result = await publishProjectAction(projectId, edited ? slug : undefined);
+      setShowUpgrade(!result.ok && (result.code === "PUBLISH_REQUIRES_PAID_PLAN" || result.code === "PUBLISHED_SITE_LIMIT_REACHED"));
       setMessage(result.ok ? "Your saved website is live. Saved edits appear on the live site immediately." : result.error);
       if (result.ok) { setSlug(result.publicSlug ?? slug); setEdited(false); router.refresh(); }
     } catch { setMessage("We couldn't reach LaunchSite. Please try again."); }
@@ -43,5 +45,6 @@ export function PublishSiteControls({ projectId, businessName, isPublished, publ
       {isPublished && <button className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" disabled={pending} onClick={unpublish} type="button">Unpublish</button>}
     </div>
     <p aria-live="polite" className="mt-3 text-sm text-slate-600">{message}</p>
+    {showUpgrade && <Link className="mt-3 inline-block rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold" href="/pricing">View plans</Link>}
   </section>;
 }

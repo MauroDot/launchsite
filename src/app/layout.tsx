@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { getAppUrl } from "@/lib/app-url";
 
-const appUrl =
-  process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+const appUrl = getAppUrl();
 
 export const metadata: Metadata = {
   title: { default: "LaunchSite | Your business, online", template: "%s | LaunchSite" },

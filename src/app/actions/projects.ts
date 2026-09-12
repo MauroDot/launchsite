@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { BillingError } from "@/lib/billing/errors";
 import { createAdminProject, createProject, publishProject, unpublishProject, updateProject } from "@/lib/project-repository";
 import { changeUserRole, getProject, saveDemoSettings, saveFeaturedBusiness, saveGeneratedContent, saveSiteContent } from "@/lib/project-repository";
 import { generateWebsiteContent } from "@/lib/openai-content-generator";
@@ -8,7 +9,7 @@ import { ProjectInputValidationError } from "@/lib/project-validation";
 import type { DemoSettings, SiteSettings, StructuredWebsiteContent, WebsiteProjectInput } from "@/lib/website-types";
 import type { FeaturedBusinessInput } from "@/lib/project-repository";
 
-type ActionResult = { ok: true; id: string; publicSlug?: string } | { ok: false; error: string; workSampleErrors?: Record<string, string> };
+type ActionResult = { ok: true; id: string; publicSlug?: string } | { ok: false; error: string; code?: string; workSampleErrors?: Record<string, string> };
 
 function errorMessage(error: unknown) {
   console.error("Website project database operation failed", error);
@@ -87,6 +88,7 @@ export async function publishProjectAction(id: string, requestedSlug?: string): 
     revalidatePath("/site/[slug]", "page");
     return { ok: true, id, publicSlug: project.publicSlug };
   } catch (error) {
+    if (error instanceof BillingError) return { ok: false, error: error.message, code: error.code };
     return { ok: false, error: error instanceof ProjectInputValidationError ? error.message : "We couldn’t publish this website right now. Please try again." };
   }
 }

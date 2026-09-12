@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/access";
 const links = [
   { href: "/#how-it-works", label: "How it works" },
   { href: "/examples", label: "Examples" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/#why-launchsite", label: "Why LaunchSite" },
 ];
 

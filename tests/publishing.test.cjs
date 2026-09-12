@@ -12,8 +12,12 @@ let race;
 let featuredRows;
 const invalidated = [];
 const prisma = {
+  $queryRaw: async () => [],
+  $transaction: async (work) => work(prisma),
+  billingAccount: { findUnique: async () => ({ plan: "BUSINESS", subscriptionStatus: "active", stripeSubscriptionId: "sub_fixture", currentPeriodEnd: null, cancelAtPeriodEnd: false }) },
   user: { findUnique: async () => currentUser },
   websiteProject: {
+    count: async ({ where }) => [...records.values()].filter((p) => p.userId === where.userId && p.isPublished).length,
     findUnique: async ({ where }) => records.get(where.id) ?? null,
     findFirst: async ({ where }) => {
       if (where.publicSlug && !where.NOT) assert.equal(where.isPublished, true, "public lookup must require publication");

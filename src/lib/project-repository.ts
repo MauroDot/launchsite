@@ -1,3 +1,7 @@
+import type { Prisma } from "@prisma/client";
+import { withBillingLock } from "@/lib/billing/lock";
+import { requirePublishEntitlement } from "@/lib/billing/entitlements";
+import { canAccessProject } from "@/lib/project-ownership";
 import { createWebsiteProject } from "@/lib/generate-site-content";
 import { prisma } from "@/lib/prisma";
 import { ProjectInputValidationError, validateProjectInput } from "@/lib/project-validation";
@@ -69,34 +73,37 @@ export async function getProject(id: string) {
   return record ? toProject(record as unknown as ProjectRecord) : null;
 }
 
-async function availablePublicSlug(value: string, projectId: string) {
+async function availablePublicSlug(value: string, projectId: string, db: Prisma.TransactionClient) {
   const base = validatePublicSlug(value);
   if (!base) throw new ProjectInputValidationError("Use a public URL with 3–72 lowercase letters, numbers, and hyphens.");
   for (let attempt = 1; attempt < 1000; attempt += 1) {
     const candidate = slugCandidate(base, attempt);
-    const match = await prisma.websiteProject.findFirst({ where: { publicSlug: candidate, NOT: { id: projectId } }, select: { id: true } });
+    const match = await db.websiteProject.findFirst({ where: { publicSlug: candidate, NOT: { id: projectId } }, select: { id: true } });
     if (!match) return candidate;
   }
   throw new ProjectInputValidationError("We couldn’t find an available public URL. Please try a more specific one.");
 }
 
 export async function publishProject(id: string, requestedSlug?: string) {
-  await requireProjectAccess(id);
-  const project = await prisma.websiteProject.findUnique({ where: { id }, select: { id: true, businessName: true, publicSlug: true, publishedAt: true } });
-  if (!project) throw new ProjectInputValidationError("Project not found.");
+  const user = await requireProjectAccess(id);
   const explicit = requestedSlug !== undefined;
-  const base = explicit ? validatePublicSlug(requestedSlug) : project.publicSlug || validatePublicSlug(normalizePublicSlug(project.businessName)) || "website";
-  if (!base) throw new ProjectInputValidationError("Use 3–72 lowercase letters, numbers, and single hyphens, without spaces.");
+  if (explicit && !validatePublicSlug(requestedSlug)) throw new ProjectInputValidationError("Use 3-72 lowercase letters, numbers, and single hyphens, without spaces.");
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const publicSlug = explicit ? base : await availablePublicSlug(base, id);
-    const now = new Date();
     try {
-      const record = await prisma.websiteProject.update({ where: { id }, data: { isPublished: true, publicSlug, publishedAt: project.publishedAt ?? now, lastPublishedAt: now }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } });
-      return toProject(record);
+      return await withBillingLock(user.id, async (tx) => {
+        const project = await tx.websiteProject.findUnique({ where: { id }, select: { id: true, userId: true, isDemo: true, isPublished: true, businessName: true, publicSlug: true, publishedAt: true } });
+        if (!project || !canAccessProject(user, project.userId, project.isDemo)) throw new ProjectInputValidationError("Project not found.");
+        await requirePublishEntitlement(user, project, tx);
+        const base = explicit ? requestedSlug! : project.publicSlug || validatePublicSlug(normalizePublicSlug(project.businessName)) || "website";
+        const publicSlug = explicit ? base : await availablePublicSlug(base, id, tx);
+        const now = new Date();
+        const record = await tx.websiteProject.update({ where: { id }, data: { isPublished: true, publicSlug, publishedAt: project.publishedAt ?? now, lastPublishedAt: now }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } });
+        return toProject(record);
+      });
     } catch (error) {
       if (!(error && typeof error === "object" && "code" in error && error.code === "P2002")) throw error;
       if (explicit) throw new ProjectInputValidationError("That public URL is already reserved. Please choose another.");
-      // The unique index arbitrates simultaneous publishes. Retry automatic names.
+      // Retry the whole transaction after a unique-index race on another account.
     }
   }
   throw new ProjectInputValidationError("That address is busy. Please try publishing again.");

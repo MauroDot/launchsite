@@ -4,6 +4,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Module = require("node:module");
 const ts = require("typescript");
+// Next's server-only guard is enforced by the production compiler. This test
+// process intentionally executes server modules without a React Server runtime.
+const serverOnly = require.resolve("server-only");
+require.cache[serverOnly] = { id: serverOnly, filename: serverOnly, loaded: true, exports: {} };
 const originalResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...args) {
   return originalResolve.call(this, request.startsWith("@/") ? path.join(__dirname, "../src", request.slice(2)) : request, ...args);

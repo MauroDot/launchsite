@@ -247,11 +247,6 @@ export async function getAdminOverview() {
   return { totalUsers, totalProjects, totalDemoSites, totalFeaturedBusinesses };
 }
 
-export async function listAdminUsers() {
-  await requireAdmin();
-  return prisma.user.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, image: true, role: true, createdAt: true, _count: { select: { projects: true } } } });
-}
-
 export async function getAdminUserProjects(id: string) {
   await requireAdmin();
   const user = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true } });

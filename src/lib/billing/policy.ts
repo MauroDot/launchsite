@@ -25,6 +25,7 @@ export function entitlementsFromBilling(account: BillingState | null) {
   return {
     plan, subscriptionStatus: account?.subscriptionStatus ?? null, hasActiveSubscription,
     canPublish: hasActiveSubscription, maxPublishedSites: plans[plan].maxPublishedSites,
+    canUseCustomDomain: hasActiveSubscription && plan === "BUSINESS",
     currentPeriodEnd: account?.currentPeriodEnd ?? null, cancelAtPeriodEnd: account?.cancelAtPeriodEnd ?? false,
   };
 }

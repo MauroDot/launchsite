@@ -107,6 +107,8 @@ Only the cloud name and API key are returned to the browser for a signed upload.
 
 `NEXT_PUBLIC_APP_URL` is the canonical public URL of the application. For production it must be `https://launchsite-two.vercel.app`; Stripe Checkout and Billing Portal return URLs never fall back to a preview or branch `VERCEL_URL`. Local development defaults to `http://localhost:3000`.
 
+Business-plan custom domains use the server-only Vercel project-domain API. Set `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID`, and (for a team project) `VERCEL_TEAM_ID` in Vercel and local server environments. The API token is never sent to the browser. Apply the custom-domain migration with `npx prisma migrate deploy` before enabling the feature.
+
 ## Authentication
 
 LaunchSite currently uses Google OAuth only. Set `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` in `.env`. A Gmail address is not required: users may sign in with any email address that is associated with a Google Account.

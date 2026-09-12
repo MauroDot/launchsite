@@ -122,6 +122,11 @@ export async function getPublicProject(publicSlug: string) {
   return record ? toPublicSite(toProject(record)) : null;
 }
 
+export async function getPublicProjectByDomain(hostname: string) {
+  const record = await prisma.websiteProject.findFirst({ where: { isPublished: true, domain: { is: { hostname, status: "ACTIVE" } } }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } });
+  return record ? toPublicSite(toProject(record)) : null;
+}
+
 export async function listProjects() {
   const user = await requireUser();
   const records = await prisma.websiteProject.findMany({ where: { userId: user.id, isDemo: false }, orderBy: { updatedAt: "desc" }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);

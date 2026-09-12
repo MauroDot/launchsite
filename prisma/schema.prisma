@@ -27,6 +27,14 @@ enum BillingPlan {
   BUSINESS
 }
 
+enum DomainStatus {
+  PENDING
+  VERIFYING
+  ACTIVE
+  ERROR
+  DISCONNECTED
+}
+
 model User {
   id            String           @id @default(cuid())
   name          String?
@@ -144,6 +152,19 @@ model WebsiteProject {
   workSamples           WebsiteWorkSample[]
   testimonials          WebsiteTestimonial[]
   featuredBusiness      FeaturedBusiness?
+  domain                Domain?
+}
+
+model Domain {
+  id         String       @id @default(cuid())
+  projectId  String       @unique
+  hostname   String       @unique
+  canonical  Boolean      @default(true)
+  status     DomainStatus @default(PENDING)
+  verifiedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  project    WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model FeaturedBusiness {

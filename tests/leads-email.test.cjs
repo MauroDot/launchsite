@@ -1,0 +1,13 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- test doubles load the server helper. */
+const assert = require("node:assert/strict");
+const { test, beforeEach } = require("node:test");
+let sendResult; const logs = [];
+const resendId = require.resolve("resend");
+require.cache[resendId] = { id: resendId, filename: resendId, loaded: true, exports: { Resend: class { constructor(key) { assert.equal(key, "re_test"); } get emails() { return { send: async () => sendResult }; } } } };
+const emailModule = require("../src/lib/leads/email.ts");
+const originalInfo = console.info; const originalWarn = console.warn; const originalError = console.error;
+beforeEach(() => { process.env.RESEND_API_KEY = "re_test"; process.env.LEAD_NOTIFICATION_FROM = "LaunchSite Leads <leads@resumesnap.app>"; sendResult = { data: { id: "email-1" }, error: null }; logs.length = 0; console.info = (...args) => logs.push(["info", ...args]); console.warn = (...args) => logs.push(["warn", ...args]); console.error = (...args) => logs.push(["error", ...args]); });
+test("accepted Resend response requires and reports an id", async () => { const result = await emailModule.notifyLead({ leadId: "lead-1", projectId: "project-1", recipient: "owner@example.com", businessName: "Example", name: "Visitor", email: "visitor@example.com", phone: null, message: "Hello" }); assert.equal(result.id, "email-1"); assert.equal(logs.find((entry) => entry[0] === "info" && entry[1] === "Lead notification accepted")[2].resendEmailId, "email-1"); });
+test("Resend errors are logged and surfaced without message content", async () => { sendResult = { data: null, error: { name: "validation_error", code: "invalid_from", message: "Invalid sender" } }; await assert.rejects(() => emailModule.notifyLead({ leadId: "lead-1", projectId: "project-1", recipient: "owner@example.com", businessName: "Example", name: "Visitor", email: "visitor@example.com", phone: null, message: "secret message" }), /Invalid sender/); const entry = logs.find((item) => item[0] === "error" && item[1] === "Lead notification failed"); assert.equal(entry[2].errorCode, "invalid_from"); assert.equal(JSON.stringify(entry).includes("secret message"), false); });
+test("missing configuration skips safely", async () => { delete process.env.RESEND_API_KEY; const result = await emailModule.notifyLead({ leadId: "lead-1", projectId: "project-1", recipient: "owner@example.com", businessName: "Example", name: "Visitor", email: "visitor@example.com", phone: null, message: "Hello" }); assert.equal(result.skipped, true); assert.equal(logs.some((entry) => entry[1] === "Lead notification skipped"), true); });
+process.on("exit", () => { console.info = originalInfo; console.warn = originalWarn; console.error = originalError; });

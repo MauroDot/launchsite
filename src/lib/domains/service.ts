@@ -4,6 +4,7 @@ import { requireProjectAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { addProjectDomain, getDomainConfiguration, getProjectDomain, removeProjectDomain, statusFromVercel } from "./vercel";
 import { normalizeDomainHostname } from "./validation";
+import { getAppUrl } from "@/lib/app-url";
 
 type DomainRecord = { id: string; projectId: string; hostname: string; canonical: boolean; status: "PENDING" | "VERIFYING" | "ACTIVE" | "ERROR" | "DISCONNECTED"; verifiedAt: Date | null; verification?: unknown };
 
@@ -36,7 +37,7 @@ export async function connectProjectDomain(projectId: string, input: unknown) {
     if (existing.hostname !== hostname) throw new Error("Disconnect the current domain before connecting a different hostname.");
     throw new Error("That domain is already connected. Use Check connection to refresh it.");
   }
-  const pending = await prisma.domain.create({ data: { projectId, hostname, status: "PENDING" }, select: { id: true, projectId: true, hostname: true, canonical: true, status: true, verifiedAt: true } });
+  const pending = await prisma.domain.create({ data: { projectId, hostname, canonical: false, status: "PENDING" }, select: { id: true, projectId: true, hostname: true, canonical: true, status: true, verifiedAt: true } });
   try {
     const provider = await addProjectDomain(hostname);
     const status = statusFromVercel(provider);
@@ -62,6 +63,7 @@ export async function disconnectProjectDomain(projectId: string) {
   await ownedCustomerProject(projectId);
   const local = await prisma.domain.findUnique({ where: { projectId }, select: { id: true, hostname: true } });
   if (!local) throw new Error("No custom domain is connected to this site.");
+  if (local.hostname === new URL(getAppUrl()).hostname || local.hostname.endsWith(".vercel.app") || local.hostname.endsWith(".vercel.sh")) throw new Error("The canonical LaunchSite domain cannot be disconnected.");
   await removeProjectDomain(local.hostname);
   await prisma.domain.delete({ where: { id: local.id } });
 }

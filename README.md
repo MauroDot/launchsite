@@ -119,7 +119,19 @@ CLOUDINARY_API_KEY="your_api_key"
 CLOUDINARY_API_SECRET="your_api_secret"
 ```
 
-Only the cloud name and API key are returned to the browser for a signed upload. `CLOUDINARY_API_SECRET` is used only by the server signature route and must never use a `NEXT_PUBLIC_` prefix.
+The route reads all three values from server environment variables. The browser receives the public cloud name, API key, upload parameters, and generated signature. `CLOUDINARY_API_SECRET` is used only by the server signature route and must never use a `NEXT_PUBLIC_` prefix.
+
+### Signed upload repair (Task 022)
+
+The previous signature included `max_file_size`, while Cloudinary's reported string-to-sign contained only `allowed_formats`, `folder`, and `timestamp`. This caused `Invalid Signature` before saving the media URL. `max_file_size` is not a direct parameter in the [Cloudinary Upload API reference](https://cloudinary.com/documentation/image_upload_api_reference); upload-preset restrictions are separate from this direct upload contract.
+
+The server and both clients (Work Samples and the existing social preview image uploader) now share one parameter builder. Images sign and send exactly `allowed_formats=jpg,png,webp&folder=launchsite/<projectId>&timestamp=<serverTimestamp>`; videos use `mp4,mov,webm` with the same folder/timestamp rules and the video endpoint. SHA-1 signing stays server-side. Only supported upload parameters enter the signature and multipart form; the file, public API key, and signature are additional multipart fields. No unsigned uploads or presets were introduced.
+
+The existing browser limits remain 10 MB for images and 100 MB for videos, with explicit supported-format checks before uploading. `maxFileSize` remains response metadata for client validation, not a Cloudinary form field. The former `max_file_size` field did not provide a working provider-side size restriction in this flow. Device upload and camera capture controls, stored URLs, media metadata, and save behavior are preserved. Existing records require no updates.
+
+Server logs under **Cloudinary upload parameters signed** contain the project ID, resource type, and exact three signed parameters. They exclude the API secret, API key, and raw signature. The UI displays a safe retry message instead of Cloudinary's raw error, which can contain signature details.
+
+No Vercel environment-variable changes or migrations are required for this fix. Keep the current three Cloudinary variables from the same product environment and redeploy the application change. Regression tests in `tests/cloudinary-upload.test.cjs` cover signatures against actual multipart fields, project scoping, timestamps, formats, size boundaries, access/rate limits, safe logging, and existing URLs. Full tests, TypeScript, ESLint, and production build passed. A live production upload was not performed: after deployment, verify an image upload, a Take photo upload on a supported mobile device, a video upload, and save/reload with the returned media URL.
 
 `NEXT_PUBLIC_APP_URL` is the canonical public URL of the application. For production it must be `https://launchsite-two.vercel.app`; Stripe Checkout and Billing Portal return URLs never fall back to a preview or branch `VERCEL_URL`. Local development defaults to `http://localhost:3000`.
 

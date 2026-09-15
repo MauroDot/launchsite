@@ -1,8 +1,8 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireProjectAccess } from "@/lib/access";
 import { rateLimit, requestKey, tooManyResponse } from "@/lib/rate-limit";
+import { cloudinarySignedParams, uploadPolicy } from "@/lib/cloudinary-upload";
 
 export const runtime = "nodejs";
 
@@ -12,7 +12,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!limited.ok) return tooManyResponse(limited.retryAfter);
   try {
     await requireProjectAccess(id);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof Error && ["NOT_FOUND", "UNAUTHENTICATED"].includes(error.message))) {
+      // Never log arbitrary exception messages, request bodies, or credentials.
+      console.error("Cloudinary upload authorization failed", { projectId: id, stage: "project-access" });
+    }
     // Deliberately indistinguishable from a missing project.
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
@@ -20,14 +24,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!config.cloudName || !config.apiKey || !config.apiSecret) return NextResponse.json({ error: "Media uploads are not configured." }, { status: 503 });
   const body = await request.json().catch(() => null) as { mediaType?: string } | null;
   if (body?.mediaType !== "IMAGE" && body?.mediaType !== "VIDEO") return NextResponse.json({ error: "Invalid media type." }, { status: 400 });
-  const project = await prisma.websiteProject.findUnique({ where: { id }, select: { id: true } });
-  if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
   const timestamp = Math.floor(Date.now() / 1000);
   const folder = `launchsite/${id}`;
-  const image = body.mediaType === "IMAGE";
-  const allowedFormats = image ? "jpg,png,webp" : "mp4,mov,webm";
-  const maxFileSize = image ? 10 * 1024 * 1024 : 100 * 1024 * 1024;
-  const signing = `allowed_formats=${allowedFormats}&folder=${folder}&max_file_size=${maxFileSize}&timestamp=${timestamp}`;
+  const { allowedFormats, maxFileSize, resourceType } = uploadPolicy(body.mediaType);
+  const signedParams = cloudinarySignedParams({ allowedFormats, folder, timestamp });
+  const signing = Object.entries(signedParams).map(([key, value]) => `${key}=${value}`).join("&");
   const signature = createHash("sha1").update(`${signing}${config.apiSecret}`).digest("hex");
-  return NextResponse.json({ cloudName: config.cloudName, apiKey: config.apiKey, timestamp, folder, signature, allowedFormats, maxFileSize, resourceType: image ? "image" : "video" });
+  console.info("Cloudinary upload parameters signed", { projectId: id, resourceType, signedParams });
+  return NextResponse.json({ cloudName: config.cloudName, apiKey: config.apiKey, timestamp, folder, signature, allowedFormats, maxFileSize, resourceType }, { headers: { "Cache-Control": "no-store" } });
 }

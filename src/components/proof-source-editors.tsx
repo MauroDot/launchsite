@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createCloudinaryUploadForm, uploadFileError, type SignedUpload } from "@/lib/cloudinary-upload";
 import type { Testimonial, WorkSample } from "@/lib/website-types";
 
 const input = "mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-950";
@@ -9,7 +10,26 @@ function Move({ index, length, move, remove }: { index: number; length: number; 
 
 function Upload({ mediaType, projectId, done }: { mediaType: WorkSample["mediaType"]; projectId?: string; done: (data: Partial<WorkSample>) => void }) {
   const [state, setState] = useState<"ready" | "uploading" | "success" | "error">("ready"); const [message, setMessage] = useState("");
-  const upload = async (file?: File) => { if (!file) return; const image = mediaType === "IMAGE"; const max = image ? 10 * 1024 * 1024 : 100 * 1024 * 1024; if (!projectId) { setState("error"); setMessage("Save this project first, then upload media."); return; } if (!file.type.startsWith(image ? "image/" : "video/") || file.size > max) { setState("error"); setMessage(image ? "Choose an image up to 10 MB." : "Choose a video up to 100 MB."); return; } setState("uploading"); setMessage(""); try { const signedResponse = await fetch(`/api/projects/${projectId}/work-samples/upload-signature`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mediaType }) }); const signed = await signedResponse.json() as { error?: string; cloudName?: string; apiKey?: string; timestamp?: number; folder?: string; signature?: string; resourceType?: string; allowedFormats?: string; maxFileSize?: number }; if (!signedResponse.ok || !signed.cloudName || !signed.apiKey || !signed.timestamp || !signed.folder || !signed.signature || !signed.resourceType) throw new Error(signed.error ?? "Could not prepare upload."); const form = new FormData(); form.append("file", file); form.append("api_key", signed.apiKey); form.append("timestamp", String(signed.timestamp)); form.append("folder", signed.folder); form.append("allowed_formats", signed.allowedFormats ?? (mediaType === "IMAGE" ? "jpg,png,webp" : "mp4,mov,webm")); form.append("max_file_size", String(signed.maxFileSize ?? max)); form.append("signature", signed.signature); const response = await fetch(`https://api.cloudinary.com/v1_1/${signed.cloudName}/${signed.resourceType}/upload`, { method: "POST", body: form }); const asset = await response.json() as { error?: { message?: string }; secure_url?: string; public_id?: string; width?: number; height?: number; duration?: number; format?: string; bytes?: number }; if (!response.ok || !asset.secure_url || !asset.public_id) throw new Error(asset.error?.message ?? "Upload failed."); done({ mediaUrl: asset.secure_url, cloudinaryPublicId: asset.public_id, width: asset.width, height: asset.height, duration: asset.duration, format: asset.format, bytes: asset.bytes }); setState("success"); setMessage("Upload complete. Save changes to keep it on this project."); } catch (error) { setState("error"); setMessage(error instanceof Error ? error.message : "Upload failed."); } };
+  const upload = async (file?: File) => {
+    if (!file) return;
+    if (!projectId) { setState("error"); setMessage("Save this project first, then upload media."); return; }
+    const fileError = uploadFileError(file, mediaType);
+    if (fileError) { setState("error"); setMessage(fileError); return; }
+    setState("uploading"); setMessage("");
+    try {
+      const signedResponse = await fetch(`/api/projects/${projectId}/work-samples/upload-signature`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mediaType }) });
+      const signed = await signedResponse.json() as Partial<SignedUpload>;
+      if (!signedResponse.ok) throw new Error("Could not prepare upload.");
+      const form = createCloudinaryUploadForm(file, signed, mediaType);
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${signed.cloudName}/${signed.resourceType}/upload`, { method: "POST", body: form });
+      const asset = await response.json() as { secure_url?: string; public_id?: string; width?: number; height?: number; duration?: number; format?: string; bytes?: number };
+      if (!response.ok || !asset.secure_url || !asset.public_id) throw new Error("Upload failed.");
+      done({ mediaUrl: asset.secure_url, cloudinaryPublicId: asset.public_id, width: asset.width, height: asset.height, duration: asset.duration, format: asset.format, bytes: asset.bytes });
+      setState("success"); setMessage("Upload complete. Save changes to keep it on this project.");
+    } catch {
+      setState("error"); setMessage("We couldn't upload this file. Please try again shortly. Your existing media has not changed.");
+    }
+  };
   const accept = mediaType === "IMAGE" ? "image/*" : "video/*";
   return <div className="sm:col-span-2"><p className="text-sm font-semibold">Add media</p><div className="mt-2 flex flex-wrap gap-3"><label className="cursor-pointer rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold"><input accept={accept} className="sr-only" disabled={state === "uploading"} onChange={(e) => upload(e.target.files?.[0])} type="file" />{mediaType === "IMAGE" ? "Upload photo" : "Upload video"}</label><label className="cursor-pointer rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold"><input accept={accept} capture="environment" className="sr-only" disabled={state === "uploading"} onChange={(e) => upload(e.target.files?.[0])} type="file" />{mediaType === "IMAGE" ? "Take photo" : "Capture video"}</label></div>{state !== "ready" && <p className={state === "error" ? "mt-2 text-sm text-rose-700" : "mt-2 text-sm text-lime-700"}>{state === "uploading" ? "Uploading..." : message}</p>}<p className="mt-2 text-xs text-slate-500">Or paste a URL below. {mediaType === "IMAGE" ? "Images up to 10 MB." : "Videos up to 100 MB."}</p></div>;
 }

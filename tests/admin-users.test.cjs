@@ -23,6 +23,7 @@ const prisma = {
     deleteMany: async ({ where }) => { billing.delete(where.userId); return { count: 1 }; },
   },
   websiteProject: {
+    count: async ({ where }) => [...projects.values()].filter((p) => p.userId === where.userId && p.hasMerchantRecords).length,
     updateMany: async ({ where, data }) => { for (const project of projects.values()) if (project.userId === where.userId && project.isDemo === where.isDemo) project.userId = data.userId; return { count: 1 }; },
     deleteMany: async ({ where }) => { for (const [id, project] of projects) if (project.userId === where.userId && project.isDemo === where.isDemo) { projects.delete(id); deletedProjects.push(id); } return { count: deletedProjects.length }; },
   },
@@ -80,4 +81,13 @@ test("delete affects only selected user and preserves shared demo projects", asy
 test("delete requires exact target email confirmation", async () => {
   await assert.rejects(() => deleteUser("user-a", "wrong@example.test"), /email exactly/i);
   assert.equal(users.has("user-a"), true);
+});
+
+test("merchant records block deletion before any user or SaaS billing data changes", async () => {
+  projects.get("site-a").hasMerchantRecords = true;
+  await assert.rejects(() => deleteUser("user-a", "user-a@example.test"), /merchant payment/);
+  assert.equal(users.has("user-a"), true);
+  assert.equal(billing.has("user-a"), true);
+  assert.equal(projects.has("site-a"), true);
+  assert.equal(projects.get("demo-a").userId, "user-a");
 });

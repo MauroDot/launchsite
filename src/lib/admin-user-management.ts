@@ -73,6 +73,10 @@ export async function deleteUser(targetId: string, confirmationEmail: string) {
   if (!target.email || confirmationEmail.trim().toLowerCase() !== target.email.toLowerCase()) throw new Error("Type the user's email exactly to confirm deletion.");
 
   await prisma.$transaction(async (tx) => {
+    const merchantProjects = await tx.websiteProject.count({ where: { userId: target.id, OR: [
+      { paymentSettings: { isNot: null } }, { paymentItems: { some: {} } }, { customerPayments: { some: {} } },
+    ] } });
+    if (merchantProjects) throw new Error("This user has merchant payment configuration or records. Contact support to retain their receipts and close the connected account before account deletion.");
     await tx.billingAccount.deleteMany({ where: { userId: target.id } });
     // Preserve shared/demo sites by detaching them; customer-owned sites and all
     // of their dependent content are deleted explicitly before the user.

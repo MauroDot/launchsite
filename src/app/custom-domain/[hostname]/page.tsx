@@ -4,6 +4,7 @@ import { SiteRenderer } from "@/components/site-renderer";
 import { getPublicProjectByDomain } from "@/lib/project-repository";
 import { publicSiteSeo } from "@/lib/seo";
 import { StructuredBusinessData } from "@/components/structured-business-data";
+import { PublicPayments } from "@/components/public-payments";
 
 export const dynamic = "force-dynamic";
 
@@ -22,5 +23,5 @@ export async function generateMetadata({ params }: { params: Promise<{ hostname:
 export default async function CustomDomainPage({ params }: { params: Promise<{ hostname: string }> }) {
   const { project } = await domainProject(params);
   if (!project) notFound();
-  return <main className="public-site"><StructuredBusinessData project={project} /><SiteRenderer project={project} trackAnalytics /></main>;
+  return <main className="public-site"><StructuredBusinessData project={project} /><SiteRenderer project={project} trackAnalytics /><PublicPayments slug={project.publicSlug} /></main>;
 }

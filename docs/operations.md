@@ -91,3 +91,50 @@ Inspect the latest Vercel deployment and compare it with the last known-good dep
 ## Logging and rate limits
 
 Operational logs use categories such as `DATABASE`, `STRIPE`, `RESEND`, `CLOUDINARY`, `OPENAI`, `DOMAIN`, `LEAD`, `ANALYTICS`, and `ADMIN`. They must exclude credentials, tokens, cookies, raw IPs, and full lead bodies. Public lead, analytics, upload, and AI paths have bounded protections documented in the README. The current limiter is in-memory and instance-local on Vercel.
+
+## Merchant payments / Stripe Connect (Task 021)
+
+See [payments.md](payments.md) for schema, currency limits, Stripe Dashboard steps, environment placement, receipts, and the release checklist. Merchant payments and LaunchSite SaaS billing are separate systems. Never repair merchant state by modifying `BillingAccount`, SaaS customers/subscriptions, or Featured Business records.
+
+### Deployment prerequisites
+
+The product owner confirmed that `20260914160000_customer_payments` is already applied. Tasks 021.1–021.3 change no schema and apply no migration. Merchant creation/status and hosted onboarding use Accounts v2 and Account Links v2, inheriting the merchant client's `2026-08-26.dahlia` without preview overrides. Direct-charge payment endpoints remain v1 with the same connected-account ID. Accounts use full Dashboard access and Stripe fee/loss collection; no recipient or customer configuration is added.
+
+Keep `STRIPE_CONNECT_WEBHOOK_SECRET` for the **Connected accounts / Snapshot** payment destination at `/api/stripe/connect/webhook`. Add `STRIPE_CONNECT_ACCOUNTS_WEBHOOK_SECRET` for the **Your account / Thin** Accounts v2 lifecycle destination at `/api/stripe/connect/webhook?events=accounts`. Configure both destinations and their event lists exactly as documented in `payments.md`. Thin notifications are unversioned and verified with the SDK notification parser; readiness is retrieved from current account state with required include fields and the optional signed context. Without a context, retrieval uses the platform key without a context override. Reuse `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_APP_URL`, `RESEND_API_KEY`, and `LEAD_NOTIFICATION_FROM`. Configure test and production secrets separately. The existing SaaS webhook secret/destination remains unchanged.
+
+PDFKit runs on Node with its package externalized; Next output tracing includes the bundled Noto Sans Latin WOFF file. Smoke-test the deployed PDF endpoint to catch packaging problems. Do not log receipt tokens while doing so.
+
+### Merchant checkout or webhook incident
+
+1. Inspect `/admin/payments` for project status and payment-source counts. Compare the connected merchant in Stripe Dashboard, its capabilities, and destination deliveries. The UI intentionally omits raw account IDs and financial details.
+2. Confirm the payment destination uses **Connected accounts / Snapshot** without the query, while Accounts v2 lifecycle uses **Your account / Thin** with `?events=accounts`. Each destination must use its own signing secret and matching live/test mode. A 400 means missing/invalid signature or wrong event format/destination; 413 means oversized payload; 503 means missing configuration; 500 indicates reconciliation needs retry. Legacy `account.updated` is no longer a readiness source.
+3. Replay failed deliveries from Stripe after fixing the cause. Receipt/state/event writes are one database transaction. Retries are safe and retrieve current Stripe state, so an older successful-payment event cannot undo an already confirmed refund.
+4. For a pending payment, inspect its known session/intent in that connected account. Metadata contains a server-created merchant payment reference. Re-deliver a supported event; do not use a browser success URL, a manual SQL PAID update, or a manual payment record as proof of Stripe settlement.
+5. For an account-create attempt older than 23 hours with no local account association, inspect Stripe request logs using the retained `merchant-account-v2:<payment-settings-id>` idempotency key and safe logged request ID. New account payloads contain no project metadata; display name/email alone are not proof of ownership. If a matching account exists, link it through a reviewed, exact-project operational repair and refresh real Stripe status. If no account was created, a reviewed retry may clear the attempt time. The app deliberately does not automatically create another account after idempotency retention may have expired. An earlier request made with different parameters may produce an idempotency conflict after this patch; inspect the original request instead of changing the key or deleting settings to bypass it. Never manually fake eligibility.
+6. For a lost checkout response, retry the same browser request/session while within the retention window; the stored pending snapshot and stable Stripe idempotency key prevent duplicates. An old pending record without a session may require inspection of Stripe metadata to reconcile the actual attempt. Do not delete payment history merely to clear an error.
+
+Disable a payment offer or unpublish the project to stop new public checkout. Downgrades also stop new native checkout. Existing payments and refunds continue syncing. Do not disable SaaS billing to resolve a merchant-payment problem.
+
+### Receipts and external payment records
+
+Manual records only assert what the business recorded. No PayPal/Venmo/Cash App/bank API verification or refund processing is implemented. Record external refunds only after the business handles money through the original provider. Stripe refunds are initiated in Stripe and synced via Connect events. Taxes are business-supplied amounts, not tax advice.
+
+Public receipt URLs are bearer credentials. If leaked, the owner can revoke access on the payment detail screen; previous links then stop working. Re-enable to issue a new token. Owner view/PDF continues to work while sharing is off. Do not paste tokens or receipt contents into operational logs/tickets. HTML/PDF responses are private/no-store, noindex, and no-referrer; check these headers if changing middleware, CDN, or routing.
+
+For receipt mail failures, verify Resend and the existing verified `LEAD_NOTIFICATION_FROM`. The recipient is the recorded payer email, not a browser override. Check Resend activity for actual delivery. Retry after the receipt/owner cooldown. The transaction survives email errors. Receipt numbers and business/amount snapshots are preserved; don't recreate a payment to resend mail.
+
+### Rate limits and retention
+
+Merchant limits use `PaymentRateLimit` in PostgreSQL, independent from the older in-memory limiter. Request-address bucket keys are SHA-256 hashes. Database unavailability fails closed for new payment operations. Monitor rate-table size; expired rows are disposable operational counters. A reviewed scheduled cleanup can execute:
+
+```sql
+DELETE FROM "PaymentRateLimit" WHERE "resetAt" < CURRENT_TIMESTAMP - INTERVAL '1 day';
+```
+
+This cleanup targets only expired rate buckets. Never apply it to `CustomerPayment`, receipt counters, line items, or webhook event ledgers. No cleanup was executed by Task 021. Receipt counters and webhook ledgers must retain their idempotency history.
+
+Admin account deletion stops before changing data when any project has merchant settings/offers/payments. Use a separate reviewed retention/account-closure process; ordinary deletion must not orphan merchant history or cancel anything in Stripe implicitly. Rolling back application code can leave the new additive tables in place. Do not reverse this migration by dropping payment data.
+
+### Validation limits
+
+The automated suite uses mocked Stripe/Resend and a transactional database double for merchant services. Complete the Stripe test-mode and real-PostgreSQL concurrency/retry checklist in `payments.md` before production traffic. The September 14 audit found three high-severity reports in the pre-existing Prisma CLI dependency chain (`deepmerge-ts` through `@prisma/config`); track remediation separately without an unreviewed Prisma major upgrade.

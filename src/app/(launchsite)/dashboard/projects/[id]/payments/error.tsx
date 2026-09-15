@@ -1,0 +1,2 @@
+"use client";
+export default function PaymentErrorPage({ reset }: { reset: () => void }) { return <section className="mx-auto max-w-xl px-6 py-16"><h1 className="text-3xl font-semibold">Payments are temporarily unavailable</h1><p className="my-5">Your records have not been removed. Please try again shortly.</p><button onClick={reset} className="rounded-full border px-5 py-3">Try again</button></section>; }

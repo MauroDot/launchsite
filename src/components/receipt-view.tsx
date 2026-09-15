@@ -1,0 +1,14 @@
+import type { Receipt } from "@/lib/payments/receipts";
+import { formatMoney } from "@/lib/payments/validation";
+import { PrintReceipt } from "./print-receipt";
+export function ReceiptView({ receipt: r, pdfUrl }: { receipt: Receipt; pdfUrl: string }) {
+  return <article className="mx-auto max-w-3xl px-6 py-12 print:p-0"><div className="mb-8 flex gap-5 print:hidden"><PrintReceipt /><a className="font-semibold underline" href={pdfUrl}>Download PDF</a></div><p className="text-sm uppercase tracking-widest text-slate-500">Receipt {r.receiptNumber}</p><h1 className="mt-3 text-3xl font-semibold">{r.businessName}</h1><p className="mt-2 text-sm">{r.businessEmail} · {r.businessPhone}</p><p className="mt-5 font-semibold">{r.paymentStatus.replaceAll("_", " ")}</p>
+    <div className="my-6 grid gap-4 sm:grid-cols-2"><div><p className="text-sm text-slate-500">Customer</p><p>{r.customerName}</p><p>{r.customerEmail}</p></div><div><p className="text-sm text-slate-500">Payment date</p><p>{r.paidAt?.toISOString().slice(0, 10)}</p><p>{r.paymentMethod.replaceAll("_", " ")}</p></div></div>
+    <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="py-3">Item</th><th>Qty</th><th>Unit</th><th className="text-right">Amount</th></tr></thead><tbody>{r.lineItems.map((item, i) => <tr key={i} className="border-b"><td className="py-3 pr-3">{item.description}</td><td>{item.quantity}</td><td>{formatMoney(item.unitAmount)}</td><td className="text-right">{formatMoney(item.totalAmount)}</td></tr>)}</tbody></table></div>
+    <dl className="ml-auto mt-5 grid max-w-sm grid-cols-2 gap-2 text-sm"><dt>Subtotal</dt><dd className="text-right">{formatMoney(r.subtotal)}</dd><dt>Tax entered by business</dt><dd className="text-right">{formatMoney(r.taxAmount)}</dd><dt>Discount</dt><dd className="text-right">{formatMoney(r.discountAmount)}</dd><dt className="font-semibold">Total paid (USD)</dt><dd className="text-right font-semibold">{formatMoney(r.totalAmount)}</dd>{r.refundedAmount > 0 && <><dt>Recorded refunds</dt><dd className="text-right">{formatMoney(r.refundedAmount)}</dd></>}</dl>
+    {r.externalReference && <p className="mt-5 text-sm">Reference: {r.externalReference}</p>}{r.note && <p className="mt-5 whitespace-pre-wrap text-sm">{r.note}</p>}
+    {r.stripeReceiptUrl && /^https:\/\/pay\.stripe\.com\//.test(r.stripeReceiptUrl) && <a className="mt-6 inline-block font-semibold underline" href={r.stripeReceiptUrl} target="_blank" rel="noopener noreferrer">View Stripe receipt</a>}
+    {r.paymentSource === "MANUAL_EXTERNAL" && <p className="mt-8 text-sm text-slate-600">Payment information recorded by the business. LaunchSite has not independently verified this payment.</p>}
+    <p className="mt-4 text-xs text-slate-500">Business record only. Not accounting or tax advice. Generated {new Date().toISOString().slice(0, 10)}.</p>
+  </article>;
+}

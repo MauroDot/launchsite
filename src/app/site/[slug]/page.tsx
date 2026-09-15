@@ -4,6 +4,7 @@ import { SiteRenderer } from "@/components/site-renderer";
 import { getPublicProject } from "@/lib/project-repository";
 import { publicSiteSeo } from "@/lib/seo";
 import { StructuredBusinessData } from "@/components/structured-business-data";
+import { PublicPayments } from "@/components/public-payments";
 
 type Props = { params: Promise<{ slug: string }> };
 export const dynamic = "force-dynamic";
@@ -18,5 +19,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PublicSitePage({ params }: Props) {
   const project = await getPublicProject((await params).slug);
   if (!project) notFound();
-  return <main className="public-site"><StructuredBusinessData project={project} /><SiteRenderer project={project} trackAnalytics /></main>;
+  return <main className="public-site"><StructuredBusinessData project={project} /><SiteRenderer project={project} trackAnalytics /><PublicPayments slug={project.publicSlug} /></main>;
 }

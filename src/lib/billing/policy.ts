@@ -30,6 +30,8 @@ export function entitlementsFromBilling(account: BillingState | null) {
   return {
     plan, subscriptionStatus: account?.subscriptionStatus ?? null, hasActiveSubscription,
     canPublish: hasActiveSubscription, maxPublishedSites: plans[plan].maxPublishedSites,
+    canAcceptCustomerPayments: hasActiveSubscription,
+    canUseExternalPaymentLinks: true,
     // Starter and Business plans include custom domains.
     canUseCustomDomain: hasActiveSubscription && (plan === "STARTER" || plan === "BUSINESS"),
     currentPeriodEnd: account?.currentPeriodEnd ?? null, cancelAtPeriodEnd: account?.cancelAtPeriodEnd ?? false,

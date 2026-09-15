@@ -192,6 +192,174 @@ model WebsiteProject {
   domain                Domain?
   leads                 Lead[]
   analyticsEvents       AnalyticsEvent[]
+  paymentSettings       ProjectPaymentSettings?
+  externalPaymentOptions ExternalPaymentOption[]
+  paymentItems          PaymentItem[]
+  customerPayments      CustomerPayment[]
+}
+
+enum ConnectStatus {
+  NOT_CONNECTED
+  ONBOARDING
+  PENDING
+  ACTIVE
+  RESTRICTED
+  DISABLED
+}
+
+enum ExternalPaymentType {
+  PAYPAL
+  VENMO
+  CASH_APP
+  BANK_PAYMENT_LINK
+  OTHER
+}
+
+enum PaymentItemType {
+  FIXED
+  DEPOSIT
+  CUSTOM_AMOUNT
+}
+
+enum CustomerPaymentMethod {
+  STRIPE
+  PAYPAL
+  VENMO
+  CASH_APP
+  BANK_TRANSFER
+  CASH
+  CHECK
+  OTHER
+}
+
+enum CustomerPaymentSource {
+  STRIPE
+  MANUAL_EXTERNAL
+}
+
+enum CustomerPaymentStatus {
+  PENDING
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  VOIDED
+  FAILED
+}
+
+// Merchant configuration never uses BillingAccount customer/subscription IDs.
+model ProjectPaymentSettings {
+  id                     String @id @default(cuid())
+  projectId              String @unique
+  project                WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  stripeConnectAccountId String? @unique
+  stripeConnectStatus    ConnectStatus @default(NOT_CONNECTED)
+  stripeChargesEnabled   Boolean @default(false)
+  stripePayoutsEnabled   Boolean @default(false)
+  stripeDetailsSubmitted Boolean @default(false)
+  accountAttemptAt       DateTime?
+  receiptSequence        Int @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model ExternalPaymentOption {
+  id           String @id @default(cuid())
+  projectId    String
+  project      WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type         ExternalPaymentType
+  label        String
+  url          String
+  instructions String?
+  enabled      Boolean @default(true)
+  sortOrder    Int @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([projectId, enabled, sortOrder])
+}
+
+model PaymentItem {
+  id          String @id @default(cuid())
+  projectId   String
+  project     WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  name        String
+  description String?
+  amount      Int
+  currency    String @default("usd")
+  type        PaymentItemType @default(FIXED)
+  enabled     Boolean @default(true)
+  minAmount   Int @default(50)
+  maxAmount   Int @default(1000000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([projectId, enabled])
+}
+
+model CustomerPayment {
+  id                      String @id @default(cuid())
+  projectId               String
+  project                 WebsiteProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  customerName            String
+  customerEmail           String?
+  customerPhone           String?
+  description             String
+  businessName            String
+  businessEmail           String
+  businessPhone           String
+  subtotal                Int
+  taxAmount               Int @default(0)
+  discountAmount          Int @default(0)
+  totalAmount             Int
+  refundedAmount          Int @default(0)
+  currency                String @default("usd")
+  paymentMethod           CustomerPaymentMethod
+  paymentSource           CustomerPaymentSource
+  paymentStatus           CustomerPaymentStatus @default(PENDING)
+  paidAt                  DateTime?
+  externalReference       String?
+  note                    String?
+  stripeConnectAccountId  String?
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String? @unique
+  stripeChargeId          String? @unique
+  stripeReceiptUrl        String?
+  receiptNumber           String?
+  receiptToken            String? @unique
+  receiptIssuedAt         DateTime?
+  requestKey              String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  lineItems               PaymentLineItem[]
+  @@unique([projectId, receiptNumber])
+  @@unique([projectId, requestKey])
+  @@index([projectId, paymentStatus, createdAt])
+  @@index([projectId, paymentMethod, createdAt])
+}
+
+model PaymentLineItem {
+  id          String @id @default(cuid())
+  paymentId   String
+  payment     CustomerPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int
+  unitAmount  Int
+  totalAmount Int
+  position    Int
+  @@unique([paymentId, position])
+}
+
+model ConnectWebhookEvent {
+  eventId     String @id
+  accountId   String
+  eventType   String
+  processedAt DateTime @default(now())
+}
+
+// Shared, fixed-window limits work across serverless instances.
+model PaymentRateLimit {
+  key       String @id
+  count     Int @default(1)
+  resetAt   DateTime
+  @@index([resetAt])
 }
 
 model Domain {

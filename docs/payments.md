@@ -2,7 +2,7 @@
 
 ## Architecture and billing separation
 
-Merchant payments belong to a **project**. LaunchSite subscriptions belong to a **user**. They have separate records, Stripe service modules, webhook endpoints, event ledgers, and database lock namespaces. `BillingAccount`, SaaS customer/subscription/price IDs, Featured Business state, subscription checkout, and subscription webhook processing are not reused for merchant funds. The only shared Stripe configuration is the platform's server-only `STRIPE_SECRET_KEY`. Merchant entitlements read the existing subscription policy; they do not write subscription state.
+Merchant payments belong to a **project**. LaunchSite subscriptions belong to a **user**. They have separate records, Stripe service modules, webhook endpoints, event ledgers, and database lock namespaces. `BillingAccount`, SaaS customer/subscription/price IDs, Featured Business state, subscription checkout, and subscription webhook processing are not reused for merchant funds. Authentication is separate: merchant operations use server-only `STRIPE_CONNECT_SECRET_KEY` from the Connect platform account; SaaS billing continues using `STRIPE_SECRET_KEY` from the billing account. There is no credential fallback. Merchant entitlements read the existing subscription policy; they do not write subscription state.
 
 The implementation follows [Stripe direct charges](https://docs.stripe.com/connect/direct-charges?platform=web&ui=stripe-hosted): a Checkout Session is created with the connected account in the SDK's `stripeAccount` request option. Its payment and balance belong to that merchant. No transfer redistribution, destination charge, subscription customer reuse, or application fee is implemented. A future application fee belongs in this merchant Checkout layer after a separate product decision.
 
@@ -65,10 +65,13 @@ This deploy command applies all outstanding migrations, so inspect migration sta
 | --- | --- |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | Connected-account **payment snapshot** signing secret; separate from SaaS secret |
 | `STRIPE_CONNECT_ACCOUNTS_WEBHOOK_SECRET` | **New in 021.1:** Accounts v2 **thin lifecycle** signing secret |
-| `STRIPE_SECRET_KEY` | Existing server-only platform key, reused for Connect authentication |
+| `STRIPE_CONNECT_SECRET_KEY` | Dedicated server-only Connect platform credential for account creation/retrieval, Account Links, direct-charge Checkout, and merchant webhook operations. Add to Vercel **Production** and redeploy. |
+| `STRIPE_SECRET_KEY` | Existing SaaS billing credential; leave unchanged. Not used by merchant payments. |
 | `NEXT_PUBLIC_APP_URL` | Existing trusted canonical LaunchSite origin used for onboarding/checkout return URLs and receipt links |
 | `RESEND_API_KEY` | Existing server-only Resend key, required to email receipts |
 | `LEAD_NOTIFICATION_FROM` | Existing verified sender reused for receipt mail; do not use a customer-supplied sender |
+
+If `STRIPE_CONNECT_SECRET_KEY` is missing or blank, merchant actions return a safe configuration error and Connect webhook requests return HTTP 503. The key is never returned to the browser or logged. SaaS billing remains independent. Keep both existing Connect webhook signing secrets associated with their destinations on the Connect platform account.
 
 No Connect publishable key, OAuth token, separate Stripe customer, additional price IDs, or platform-fee variable is required. For local connected-account webhook forwarding:
 

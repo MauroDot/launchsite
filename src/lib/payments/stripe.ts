@@ -24,10 +24,10 @@ export async function retrieveMerchantAccount(id: string, context?: Stripe.Reque
   if (account.id !== id) throw new Error("Connect account mismatch");
   return account;
 }
-// Authentication only is shared with SaaS billing. No customers, subscriptions,
-// prices, events, or BillingAccount writes cross this integration boundary.
+// Dedicated Connect platform authentication; never fall back to SaaS billing.
+// No customers, subscriptions, prices, events, or BillingAccount writes cross this boundary.
 export function getMerchantStripe() {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  const key = process.env.STRIPE_CONNECT_SECRET_KEY?.trim();
   if (!key) throw new PaymentError("Card payments are not configured yet.");
   return client ??= new Stripe(key, { apiVersion: "2026-08-26.dahlia", maxNetworkRetries: 1, timeout: 5000 });
 }

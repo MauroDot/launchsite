@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   // A fixed URL query selects the destination, not unverified payload content.
   const accountEvents = new URL(request.url).searchParams.get("events") === "accounts";
   const secret = (accountEvents ? process.env.STRIPE_CONNECT_ACCOUNTS_WEBHOOK_SECRET : process.env.STRIPE_CONNECT_WEBHOOK_SECRET)?.trim();
-  if (!secret || !process.env.STRIPE_SECRET_KEY?.trim()) return Response.json({ error: "Connect is not configured." }, { status: 503 });
+  if (!secret || !process.env.STRIPE_CONNECT_SECRET_KEY?.trim()) return Response.json({ error: "Connect is not configured." }, { status: 503 });
   const signature = request.headers.get("stripe-signature");
   if (!signature) return Response.json({ error: "Missing signature." }, { status: 400 });
   let event: Stripe.Event | Stripe.V2.Core.EventNotification;

@@ -154,12 +154,42 @@ Published slug and active custom-domain pages send a small fire-and-forget page-
 
 ## Customer payments and receipts (Task 021)
 
+### One-project sandbox Connect recovery (Task 021.4)
+
+Run from the repository root, replacing `EXACT_PROJECT_ID` with the full ID from `/dashboard/projects/<id>/payments`:
+
+```powershell
+node scripts/reset-project-connect.cjs EXACT_PROJECT_ID
+node scripts/reset-project-connect.cjs EXACT_PROJECT_ID --confirm
+```
+
+The first command is read-only. Review its project ID, business name, current Connect state, and exact proposed reset before running the second command. Missing projects/settings and unknown flags fail. Only an exact `WebsiteProject.id` lookup is used; names and slugs are not resolved.
+
+The CLI uses `DATABASE_URL` from the shell or root environment files, loaded through Next's production-mode environment loader (`.env.production.local`, `.env.local`, `.env.production`, `.env`, in that priority after existing shell variables). Keep the intended Railway URL in your uncommitted root `.env.local` or `.env`; the script never prints credentials or edits environment files. No Stripe key is needed. Dependencies and the generated Prisma client must already be installed (`npm install`).
+
+Confirmed execution updates just the existing project's `ProjectPaymentSettings` row:
+
+| Field | Result |
+| --- | --- |
+| `stripeConnectAccountId` | `null` |
+| `stripeConnectStatus` | `NOT_CONNECTED` |
+| `stripeChargesEnabled` | `false` |
+| `stripePayoutsEnabled` | `false` |
+| `stripeDetailsSubmitted` | `false` |
+| `accountAttemptAt` | `null` |
+
+There are no additional Connect lifecycle fields to clear. Clearing `accountAttemptAt` allows the next onboarding attempt through the old-attempt guard. The settings ID, receipt sequence, and timestamps are preserved (the update explicitly retains `updatedAt` to prevent Prisma's automatic timestamp change). All other rows/data remain untouched. The script uses the application's project payment lock and rejects an update if the reviewed settings changed before the write. It prints the resulting state only after the transaction commits. No schema changes, migrations, Stripe calls, account creation, or row deletion occur.
+
+Run this one-off recovery while this project's onboarding, status refresh, and sandbox webhook processing are idle; it does not cancel already-running requests. This is specifically for the confirmed sandbox-to-live transition, not a general same-mode account replacement tool: onboarding retains its existing settings-ID-based idempotency key. After reset, open the deployed project's Payments page, verify **Not connected**, and use **Connect Stripe** with the deployment's live configuration. Verify onboarding, status refresh, and checkout afterward; the CLI itself cannot validate live Stripe behavior.
+
+### Payment architecture
+
 Project → **Payments** supports external payment links on all plans, plus Stripe Connect card checkout and manually recorded payments on Starter/Business. Payments are USD-only, with integer-cent arithmetic and a $10,000 per-payment limit. Receipts provide owner/customer views, print, PDF download, optional Resend email, and revocable random-token sharing. Manual receipts clearly disclose that the business supplied the payment information; LaunchSite does not independently verify PayPal, Venmo, bank, cash, check, or other external payments.
 
 Merchant accounts/payments use separate project-scoped tables, Stripe services, and `/api/stripe/connect/webhook`. Existing `BillingAccount` subscriptions and `/api/stripe/webhook` are preserved. Checkout uses connected-account direct charges without a LaunchSite transaction fee. No card data, bank credentials, or identity documents are collected by this integration.
 
 The product owner confirmed that `20260914160000_customer_payments` has been applied. Tasks 021.1–021.3 require no schema changes or additional migrations. New merchant accounts use **Accounts v2**, merchant card capabilities, full Stripe Dashboard access, and Stripe-owned fee/loss collection. Task 021.3 adds business name/contact email/US identity to the minimal create payload and uses the SDK's stable `2026-08-26.dahlia` client version without preview overrides. Account IDs are committed before retrieval and onboarding-link creation so retries reuse them. Direct-charge Checkout still uses the connected account as merchant and takes no application fee. Hosted onboarding uses Account Links v2.
 
-Keep `STRIPE_CONNECT_WEBHOOK_SECRET` for the **Connected accounts / Snapshot** payment destination at `/api/stripe/connect/webhook`, and add `STRIPE_CONNECT_ACCOUNTS_WEBHOOK_SECRET` for the **Your account / Thin** Accounts v2 lifecycle destination at `/api/stripe/connect/webhook?events=accounts`. Put these in the root local environment file and matching Vercel environment; reuse the existing platform key, canonical app URL, Resend key, and verified sender. Private `.env` files were not edited. See the payment setup guide for the exact event subscriptions and API versions.
+Keep `STRIPE_CONNECT_WEBHOOK_SECRET` for the **Connected accounts / Snapshot** payment destination at `/api/stripe/connect/webhook`, and add `STRIPE_CONNECT_ACCOUNTS_WEBHOOK_SECRET` for the **Your account / Thin** Accounts v2 lifecycle destination at `/api/stripe/connect/webhook?events=accounts`. Put these in the root local environment file and matching Vercel environment; add server-only `STRIPE_CONNECT_SECRET_KEY` from the verified LaunchSite Connect platform account to Vercel **Production** and redeploy. Keep `STRIPE_SECRET_KEY` unchanged for SaaS subscriptions and Featured Business billing. Locally, set the dedicated Connect key in the root `.env.local` or `.env`. Continue using the existing canonical app URL, Resend key, and verified sender. Private `.env` files were not edited. See the payment setup guide for the exact event subscriptions and API versions.
 
 See [merchant payment architecture, setup, tests, limitations, and release checklist](docs/payments.md), [Task 021 implementation report](docs/task-021-report.md), and [operational recovery](docs/operations.md). Merchant-specific rate limits are shared in PostgreSQL. Existing general-purpose rate limits remain instance-local. Admins have read-only merchant summaries and cannot delete accounts with retained merchant configuration/records through the ordinary user-deletion flow.

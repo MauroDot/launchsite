@@ -132,7 +132,8 @@ beforeEach(() => {
   tables.billingAccount.push({ userId: "owner", plan: "STARTER", stripeSubscriptionId: "sub_saas", subscriptionStatus: "active", stripeCustomerId: "cus_saas" });
   tables.paymentItem.push({ id: "offer", projectId: "project", name: "Service deposit", amount: 10000, currency: "usd", type: "DEPOSIT", minAmount: 50, maxAmount: 1000000, enabled: true });
   process.env.NEXT_PUBLIC_APP_URL = "https://launchsite.example";
-  process.env.STRIPE_SECRET_KEY = "sk_test_merchant_unit_only";
+  process.env.STRIPE_SECRET_KEY = "sk_test_billing_unit_only";
+  process.env.STRIPE_CONNECT_SECRET_KEY = "sk_test_merchant_unit_only";
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = "whsec_merchant_unit_only";
   process.env.STRIPE_CONNECT_ACCOUNTS_WEBHOOK_SECRET = "whsec_accounts_unit_only";
   process.env.RESEND_API_KEY = "re_unit_only";
@@ -336,6 +337,28 @@ async function deliverThin(payload, secret = process.env.STRIPE_CONNECT_ACCOUNTS
   const signature = realStripe.webhooks.generateTestHeaderString({ payload: body, secret });
   return webhook(new Request(`https://launchsite.example/api/stripe/connect/webhook${query}`, { method: "POST", headers: { "stripe-signature": signature }, body }));
 }
+test("both Connect webhook destinations work without the SaaS credential", async () => {
+  delete process.env.STRIPE_SECRET_KEY;
+  const payment = await stripePayment();
+  const before = copy(tables.billingAccount);
+  assert.equal((await deliverThin(thinEvent())).status, 200);
+  assert.equal((await deliverThin(event("checkout.session.completed", payment), process.env.STRIPE_CONNECT_WEBHOOK_SECRET, "")).status, 200);
+  assert.deepEqual(tables.billingAccount, before);
+});
+
+test("both Connect webhook destinations fail safely without the dedicated credential even when billing is configured", async () => {
+  for (const key of [undefined, "", "   "]) {
+    if (key === undefined) delete process.env.STRIPE_CONNECT_SECRET_KEY;
+    else process.env.STRIPE_CONNECT_SECRET_KEY = key;
+    for (const query of ["", "?events=accounts"]) {
+      const response = await webhook(new Request(`https://launchsite.example/api/stripe/connect/webhook${query}`, { method: "POST", body: "{}" }));
+      assert.equal(response.status, 503);
+      assert.deepEqual(await response.json(), { error: "Connect is not configured." });
+    }
+  }
+  assert.equal(calls.length, 0);
+});
+
 test("signed thin notification refreshes only mapped account and preserves signed context", async () => {
   accounts.set("acct_merchant", activeAccount({ payoutStatus: "pending" }));
   const before = copy(tables.billingAccount);

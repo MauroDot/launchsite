@@ -27,12 +27,15 @@ export async function requireAdmin() {
   return user;
 }
 
-export async function requireProjectAccess(id: string) {
+export async function requireProjectAccess(id: string, options: { allowUnassignedSample?: boolean } = {}) {
   const user = await requireUser();
   const project = await prisma.websiteProject.findUnique({
     where: { id },
     select: { userId: true, isDemo: true },
   });
-  if (!project || !canAccessProject(user, project.userId, project.isDemo)) throw new Error("NOT_FOUND");
+  // Only project reads and the admin's explicit demo opt-in use this exception.
+  // Default mutation, publishing, billing, and domain authorization stays unchanged.
+  const canPreviewUnassigned = options.allowUnassignedSample && user.role === "ADMIN" && project?.userId === null;
+  if (!project || (!canAccessProject(user, project.userId, project.isDemo) && !canPreviewUnassigned)) throw new Error("NOT_FOUND");
   return user;
 }

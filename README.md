@@ -1,5 +1,15 @@
 # LaunchSite
 
+### Legacy admin sample previews (Task 021.6)
+
+Admins can open and preview unassigned legacy projects even when `isDemo` is false. These views label them **Unassigned sample**. This read permission does not assign an owner or grant publishing, payment, domain, or general editing permissions. An admin can explicitly mark the project as a demo using its existing Demo settings; the usual admin demo editing rules then apply.
+
+Public visibility remains explicit: `/examples` and `/examples/[slug]` require `isDemo: true`, independently of publication; `/site/[slug]` requires `isPublished: true`; custom domains also require an active domain. Previewing does not change any of these flags. Missing payment settings, domain, Featured Business metadata, generated content, or legacy theme fields do not require new database records to render.
+
+Read-only diagnosis on September 15, 2026 found Wonder Greens, ClearPath Exterior Cleaning, and Order & Ease Home Organizing had `userId: null` and `isDemo: false`. `requireProjectAccess` rejected that combination with `Error: NOT_FOUND`, which the project page incorrectly presented as a database outage. Project and preview pages now return a 404 for that expected access denial and retain server-side exception logging plus safe fallback UI for operational failures. Summit Ridge Roofing and GreenLine Outdoor Services already had `isDemo: true`; their reported failure was not reproducible in this checkout. All five saved samples rendered successfully after the change using an existing admin identity, and Hearth & Harvest rendered with its owner identity, with authentication simulated for the server-render check. A deployed browser session was not verified.
+
+No sample data, owners, environment files, or schema were changed. No migration is required. Regression coverage is in `tests/legacy-sample-preview.test.cjs`; run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` (use `npm.cmd` on Windows if PowerShell blocks `npm.ps1`). Deploy the application change normally and verify the five previews from Admin → Manage sites. Summit Ridge and GreenLine are already eligible for Examples; the other three require explicit demo opt-in before they appear publicly there.
+
 ## Publishing
 
 Publishing uses a LaunchSite-hosted URL at `/site/<public-slug>`. Published sites read their current saved content and theme, so later saved edits become live immediately. Unpublishing removes the public route while retaining the private project. `publicSlug` is separate from the internal project slug so custom domains or LaunchSite subdomains can map to the same site later.

@@ -13,6 +13,7 @@ import { toPublicSite } from "@/lib/public-site";
 import { defaultSiteSettings, defaultThemeSettings, siteSectionIds, type BrandTone, type PersistedWebsiteProject, type PrimaryCallToAction, type SiteSectionId, type SiteSettings, type StructuredWebsiteContent, type VisualStyle, type WebsiteProjectInput } from "@/lib/website-types";
 
 type ProjectRecord = {
+  userId?: string | null;
   id: string; createdAt: Date; updatedAt: Date; businessName: string; businessType: string; businessDescription: string;
   serviceArea: string; phone: string; email: string; yearsInBusiness: number | null; brandTone: string; businessStory: string | null; targetAudience: string | null; differentiators: string | null; customerPriorities: string | null; factualNotes: string | null;
   primaryCallToAction: string; secondaryCallToAction: string | null; visualStyle: string; slug: string; status: "DRAFT"; seoTitle?: string | null; seoDescription?: string | null; socialImageUrl?: string | null; allowIndexing?: boolean; domain?: { hostname: string; status: string } | null; services: Array<{ name: string; description: string; notes: string | null; position: number }>; workSamples: Array<{ id: string; mediaType: "IMAGE" | "VIDEO"; mediaUrl: string; title: string; description: string; serviceCategory: string | null; locationNote: string | null; cloudinaryPublicId: string | null; width: number | null; height: number | null; duration: number | null; format: string | null; bytes: number | null; position: number }>; testimonials: Array<{ id: string; customerName: string; testimonialText: string; serviceType: string | null; locationNote: string | null; rating: number | null; position: number }>; generatedContent: unknown; contentGeneratedAt: Date | null; siteSettings: unknown; isDemo: boolean; featured: boolean; demoTitle: string | null; demoDescription: string | null; demoSortOrder: number | null; isPublished: boolean; publishedAt: Date | null; lastPublishedAt: Date | null; publicSlug: string | null;
@@ -22,6 +23,7 @@ function toProject(record: ProjectRecord): PersistedWebsiteProject {
   const savedSettings = record.siteSettings as Partial<SiteSettings> | null;
   const siteSettings: SiteSettings = { layoutFamily: savedSettings?.layoutFamily === "Conversion" || savedSettings?.layoutFamily === "Showcase" ? savedSettings.layoutFamily : "Classic", hiddenSections: (savedSettings?.hiddenSections ?? []).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)), sectionOrder: (savedSettings?.sectionOrder ?? defaultSiteSettings.sectionOrder).filter((section): section is SiteSectionId => siteSectionIds.includes(section as SiteSectionId)), theme: { ...defaultThemeSettings, ...(savedSettings?.theme ?? {}) } };
   const project: PersistedWebsiteProject = {
+    isUnassignedSample: record.userId === null,
     ...createWebsiteProject({
       business: {
         businessName: record.businessName, category: record.businessType, description: record.businessDescription,
@@ -68,7 +70,7 @@ export async function updateProject(id: string, input: WebsiteProjectInput): Pro
 }
 
 export async function getProject(id: string) {
-  await requireProjectAccess(id);
+  await requireProjectAccess(id, { allowUnassignedSample: true });
   const record = await prisma.websiteProject.findUnique({ where: { id }, include: { services: { orderBy: { position: "asc" } }, workSamples: { orderBy: { position: "asc" } }, testimonials: { orderBy: { position: "asc" } } } } as never);
   return record ? toProject(record as unknown as ProjectRecord) : null;
 }
@@ -158,7 +160,7 @@ export async function saveSiteContent(id: string, content: StructuredWebsiteCont
 
 export async function saveDemoSettings(id: string, settings: import("@/lib/website-types").DemoSettings) {
   await requireAdmin();
-  await requireProjectAccess(id);
+  await requireProjectAccess(id, { allowUnassignedSample: true });
   const sortOrder = settings.demoSortOrder.trim() === "" ? null : Number(settings.demoSortOrder);
   if (sortOrder !== null && (!Number.isInteger(sortOrder) || sortOrder < 0)) throw new ProjectInputValidationError("Display order must be a non-negative whole number.");
   await prisma.websiteProject.update({ where: { id }, data: { isDemo: settings.isDemo, featured: settings.isDemo && settings.featured, demoTitle: settings.demoTitle.trim() || null, demoDescription: settings.demoDescription.trim() || null, demoSortOrder: sortOrder } as never });

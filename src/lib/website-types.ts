@@ -77,6 +77,7 @@ export type SiteSettings = { layoutFamily: LayoutFamily; hiddenSections: SiteSec
 export const defaultSiteSettings: SiteSettings = { layoutFamily: "Classic", hiddenSections: [], sectionOrder: layoutDefaultOrders.Classic, theme: defaultThemeSettings };
 
 export type PersistedWebsiteProject = WebsiteProject & {
+  isUnassignedSample?: boolean;
   id: string;
   slug: string;
   status: "DRAFT";
